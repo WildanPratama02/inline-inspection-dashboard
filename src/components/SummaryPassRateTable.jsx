@@ -82,11 +82,10 @@ const CategoryTable = ({ title, icon, nameColumnLabel, rows, searchTerm, hidePas
                   <td className="py-2.5 px-4 text-center font-bold text-white">{r.rftStr}</td>
                   <td className="py-2.5 px-4 text-right font-bold">
                     <span
-                      className={`inline-block px-3 py-0.5 rounded text-[11px] font-extrabold border ${
-                        r.result === 'PASS'
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                          : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                      }`}
+                      className={`inline-block px-3 py-0.5 rounded text-[11px] font-extrabold border ${r.result === 'PASS'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        }`}
                     >
                       {r.result}
                     </span>
@@ -104,9 +103,9 @@ const CategoryTable = ({ title, icon, nameColumnLabel, rows, searchTerm, hidePas
 const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { cfaRows, psiRows, party3Rows, t1qmRows } = useMemo(() => {
+  const { cfaRows, psiLv1Rows, psiRows, party3Rows, t1qm1Rows, t1qm2Rows, t1qm3Rows } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { cfaRows: [], psiRows: [], party3Rows: [], t1qmRows: [] };
+      return { cfaRows: [], psiLv1Rows: [], psiRows: [], party3Rows: [], t1qm1Rows: [], t1qm2Rows: [], t1qm3Rows: [] };
     }
 
     const firstItem = rawData[0] || data[0] || {};
@@ -115,14 +114,18 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
     const statusKey = findKey(firstItem, 'status_po', 'status po', 'status_inspection', 'status inspection', 'status', 'result', 'pass_fail');
     const rftKey = findKey(firstItem, 'rft');
     const qtyInsKey = findKey(firstItem, 'qty_inspection', 'qty inspection');
+    const aGradeKey = findKey(firstItem, 'total_a_grade', 'total a grade', 'a_grade', 'a grade', 'agrade', 'a-grade', 'grade_a', 'grade a') || 'a_grade';
     const totalDefectKey = findKey(firstItem, 'total_defect', 'total defect', 'qty_defect', 'qty defect');
 
     // Group items by category (each inspection row preserved)
     const catItems = {
       'CFA': [],
-      'PSI': [],
+      'PSI LV.1': [],
+      'PSI LV.2': [],
       '3rd Party': [],
-      'T1QM': []
+      'T1QM 1': [],
+      'T1QM 2': [],
+      'T1QM 3': []
     };
 
     data.forEach(item => {
@@ -147,16 +150,22 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
 
         // RFT for this specific inspection row
         let rftVal = null;
-        if (rftKey) {
-          rftVal = parsePercent(item[rftKey]);
-        }
-        if (rftVal === null) {
+        if (categoryType === 'PSI LV.1' || categoryType === 'PSI LV.2') {
           const totalIns = qtyInsKey ? parseNumber(item[qtyInsKey]) : 0;
-          const totalDefects = totalDefectKey ? parseNumber(item[totalDefectKey]) : 0;
-          if (totalIns > 0) {
-            rftVal = ((totalIns - totalDefects) / totalIns) * 100;
-          } else {
-            rftVal = 0;
+          const totalAGradeVal = aGradeKey ? parseNumber(item[aGradeKey]) : 0;
+          rftVal = totalIns > 0 ? (totalAGradeVal / totalIns) * 100 : 0;
+        } else {
+          if (rftKey) {
+            rftVal = parsePercent(item[rftKey]);
+          }
+          if (rftVal === null) {
+            const totalIns = qtyInsKey ? parseNumber(item[qtyInsKey]) : 0;
+            const totalDefects = totalDefectKey ? parseNumber(item[totalDefectKey]) : 0;
+            if (totalIns > 0) {
+              rftVal = ((totalIns - totalDefects) / totalIns) * 100;
+            } else {
+              rftVal = 0;
+            }
           }
         }
 
@@ -164,7 +173,7 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
 
         // Result calculation: PSI is always PASS
         let result = 'PASS';
-        if (categoryType === 'PSI') {
+        if (categoryType === 'PSI LV.1' || categoryType === 'PSI LV.2') {
           result = 'PASS';
         } else {
           if (statusKey && item[statusKey] !== undefined && item[statusKey] !== null && item[statusKey] !== '') {
@@ -194,13 +203,16 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
 
     return {
       cfaRows: processCategoryItems(catItems['CFA'], 'CFA'),
-      psiRows: processCategoryItems(catItems['PSI'], 'PSI'),
+      psiLv1Rows: processCategoryItems(catItems['PSI LV.1'], 'PSI LV.1'),
+      psiRows: processCategoryItems(catItems['PSI LV.2'], 'PSI LV.2'),
       party3Rows: processCategoryItems(catItems['3rd Party'], '3rd Party'),
-      t1qmRows: processCategoryItems(catItems['T1QM'], 'T1QM')
+      t1qm1Rows: processCategoryItems(catItems['T1QM 1'], 'T1QM 1'),
+      t1qm2Rows: processCategoryItems(catItems['T1QM 2'], 'T1QM 2'),
+      t1qm3Rows: processCategoryItems(catItems['T1QM 3'], 'T1QM 3')
     };
   }, [data, rawData, resolveInspectorType]);
 
-  const totalAllInspections = cfaRows.length + psiRows.length + party3Rows.length + t1qmRows.length;
+  const totalAllInspections = cfaRows.length + psiLv1Rows.length + psiRows.length + party3Rows.length + t1qm1Rows.length + t1qm2Rows.length + t1qm3Rows.length;
 
   return (
     <div className="industrial-border bg-primary p-4 relative w-full rounded-sm">
@@ -236,11 +248,21 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
           searchTerm={searchTerm}
         />
 
-        {/* Table 2: PSI */}
+        {/* Table 1.5: PSI LV.1 */}
         <CategoryTable
-          title="PSI SUMMARY"
+          title="PSI LV.1 SUMMARY"
           icon="📋"
-          nameColumnLabel="PSI NAME"
+          nameColumnLabel="PSI LV.1 NAME"
+          rows={psiLv1Rows}
+          searchTerm={searchTerm}
+          hidePassFail={true}
+        />
+
+        {/* Table 2: PSI LV.2 */}
+        <CategoryTable
+          title="PSI LV.2 SUMMARY"
+          icon="📋"
+          nameColumnLabel="PSI LV.2 NAME"
           rows={psiRows}
           searchTerm={searchTerm}
           hidePassFail={true}
@@ -255,12 +277,30 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
           searchTerm={searchTerm}
         />
 
-        {/* Table 4: T1QM */}
+        {/* Table 4: T1QM 1 */}
         <CategoryTable
-          title="T1QM SUMMARY"
+          title="T1QM 1 SUMMARY"
           icon="🔍"
-          nameColumnLabel="T1QM NAME"
-          rows={t1qmRows}
+          nameColumnLabel="T1QM 1 NAME"
+          rows={t1qm1Rows}
+          searchTerm={searchTerm}
+        />
+
+        {/* Table 5: T1QM 2 */}
+        <CategoryTable
+          title="T1QM 2 SUMMARY"
+          icon="🔍"
+          nameColumnLabel="T1QM 2 NAME"
+          rows={t1qm2Rows}
+          searchTerm={searchTerm}
+        />
+
+        {/* Table 6: T1QM 3 */}
+        <CategoryTable
+          title="T1QM 3 SUMMARY"
+          icon="🔍"
+          nameColumnLabel="T1QM 3 NAME"
+          rows={t1qm3Rows}
           searchTerm={searchTerm}
         />
       </div>

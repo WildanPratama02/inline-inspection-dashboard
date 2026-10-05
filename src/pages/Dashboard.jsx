@@ -9,14 +9,16 @@ import DashboardContentView from '../components/DashboardContentView';
 import SummaryPassRateTable from '../components/SummaryPassRateTable';
 import WeeklyExportController from '../components/WeeklyExportController';
 import DashboardExportController from '../components/DashboardExportController';
+import PsiEmailExportController from '../components/PsiEmailExportController';
+import AqlEmailExportController from '../components/AqlEmailExportController';
 import ExportModal from '../components/ExportModal';
 import { exportToExcelRFT, exportToExcelDetail } from '../utils/excelExportUtils';
 import { fetchData } from '../services/googleSheetService';
-import { 
-  normalizeKey, 
-  findKey, 
-  parseNumber, 
-  toLocalISODate, 
+import {
+  normalizeKey,
+  findKey,
+  parseNumber,
+  toLocalISODate,
   formatDateStr,
   getInspectorType
 } from '../utils/dataUtils';
@@ -26,9 +28,11 @@ const Dashboard = () => {
   const [data, setData] = useState({ raw: [], summary: [] });
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('dashboard');
-  const [activeTab, setActiveTab] = useState('CFA');
+  const [activeTab, setActiveTab] = useState('PSI LV.2');
   const [isExportingWeekly, setIsExportingWeekly] = useState(false);
   const [isExportingDashboard, setIsExportingDashboard] = useState(false);
+  const [isExportingPsiEmail, setIsExportingPsiEmail] = useState(false);
+  const [isExportingAqlEmail, setIsExportingAqlEmail] = useState(false);
   const [exportStatus, setExportStatus] = useState({ visible: false, message: '', progress: 0, total: 0 });
   // Dynamic map: { 'INSPECTOR NAME': 'CFA' | 'PSI' | '3rd Party' } — built from Google Sheet type_inspection column
   const [inspectorTypeMap, setInspectorTypeMap] = useState({});
@@ -40,7 +44,8 @@ const Dashboard = () => {
     model: [],
     po: [],
     inspector: [],
-    inspectorType: []
+    inspectorType: [],
+    defectName: []
   });
 
   const rawDataRef = useRef([]);
@@ -52,9 +57,13 @@ const Dashboard = () => {
       const typeVal = item.type_inspection || item.inspection_type || item.type_inspector || '';
       if (typeVal && typeVal.trim() !== '' && typeVal.trim() !== '-') {
         const v = typeVal.trim().toUpperCase();
-        if (v.includes('T1QM') || v.includes('T1 QM') || v === 'T1QM' || v === 'T1') return 'T1QM';
+        if (v.includes('T1QM 1') || v.includes('T1 QM 1') || v === 'T1QM 1' || v === 'T1 1') return 'T1QM 1';
+        if (v.includes('T1QM 2') || v.includes('T1 QM 2') || v === 'T1QM 2' || v === 'T1 2') return 'T1QM 2';
+        if (v.includes('T1QM 3') || v.includes('T1 QM 3') || v === 'T1QM 3' || v === 'T1 3') return 'T1QM 3';
+        if (v.includes('T1QM') || v.includes('T1 QM') || v === 'T1QM' || v === 'T1') return 'T1QM 1';
         if (v.includes('CFA')) return 'CFA';
-        if (v === 'PSI') return 'PSI';
+        if (v === 'PSI LV.1' || v.includes('PSI LV.1') || v.includes('PSI LV. 1') || v.includes('PSI LV1')) return 'PSI LV.1';
+        if (v === 'PSI' || v.includes('PSI LV.2') || v.includes('PSI LV. 2') || v.includes('PSI LV2')) return 'PSI LV.2';
         if (v.includes('AQL') || v.includes('3RD PARTY') || v.includes('3R PARTY')) return '3rd Party';
         // '100% Inline' — fall through to name lookup
       }
@@ -117,9 +126,13 @@ const Dashboard = () => {
           const name = (item.inspector || '').trim().toUpperCase();
           const typeVal = (item.type_inspection || item.inspection_type || '').trim().toUpperCase();
           if (name && typeVal && typeVal !== '' && typeVal !== '-' && !dynamicMap[name]) {
-            if (typeVal.includes('T1QM') || typeVal.includes('T1 QM') || typeVal === 'T1QM' || typeVal === 'T1') dynamicMap[name] = 'T1QM';
+            if (typeVal.includes('T1QM 1') || typeVal.includes('T1 QM 1') || typeVal === 'T1QM 1' || typeVal === 'T1 1') dynamicMap[name] = 'T1QM 1';
+            else if (typeVal.includes('T1QM 2') || typeVal.includes('T1 QM 2') || typeVal === 'T1QM 2' || typeVal === 'T1 2') dynamicMap[name] = 'T1QM 2';
+            else if (typeVal.includes('T1QM 3') || typeVal.includes('T1 QM 3') || typeVal === 'T1QM 3' || typeVal === 'T1 3') dynamicMap[name] = 'T1QM 3';
+            else if (typeVal.includes('T1QM') || typeVal.includes('T1 QM') || typeVal === 'T1QM' || typeVal === 'T1') dynamicMap[name] = 'T1QM 1';
             else if (typeVal.includes('CFA')) dynamicMap[name] = 'CFA';
-            else if (typeVal === 'PSI') dynamicMap[name] = 'PSI';
+            else if (typeVal === 'PSI LV.1' || typeVal.includes('PSI LV.1') || typeVal.includes('PSI LV. 1') || typeVal.includes('PSI LV1')) dynamicMap[name] = 'PSI LV.1';
+            else if (typeVal === 'PSI' || typeVal.includes('PSI LV.2') || typeVal.includes('PSI LV. 2') || typeVal.includes('PSI LV2')) dynamicMap[name] = 'PSI LV.2';
             else if (typeVal.includes('AQL') || typeVal.includes('3RD PARTY') || typeVal.includes('3R PARTY')) dynamicMap[name] = '3rd Party';
             // '100% Inline' -> will fall back to static map
           }
@@ -137,19 +150,27 @@ const Dashboard = () => {
 
     const firstItem = data.raw[0] || {};
     const dateKey = findKey(firstItem, 'date');
-    
+
     // Pre-find keys for all categorical filters
     const filterKeys = {};
     ['factory', 'cell', 'model', 'po', 'inspector', 'article'].forEach(k => {
       filterKeys[k] = findKey(firstItem, k);
     });
+
+    // Also pre-find defect keys for dynamic defect filter
+    const defectNameKeys = [];
+    const defectQtyKeys = [];
+    for (let i = 1; i <= 25; i++) {
+      defectNameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+      defectQtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    }
     const inspectorKey = filterKeys['inspector'];
 
     const checkDateInRange = (item) => {
       if (!dateKey) return true;
       const dateStr = item[dateKey];
       if (!dateStr) return false;
-      
+
       let itemDate;
       if (dateStr.includes('/')) {
         const [d, m, y] = dateStr.split('/').map(Number);
@@ -161,7 +182,7 @@ const Dashboard = () => {
       if (isNaN(itemDate.getTime())) return false;
       itemDate.setHours(0, 0, 0, 0);
       const itemTime = itemDate.getTime();
-      
+
       const start = filters.startDate !== 'ALL' ? new Date(filters.startDate) : null;
       if (start) start.setHours(0, 0, 0, 0);
       const startTime = start ? start.getTime() : -Infinity;
@@ -213,13 +234,54 @@ const Dashboard = () => {
       return Array.from(optSet).sort();
     };
 
+    const getOptionsForDefectName = () => {
+      const optSet = new Set();
+      data.raw.forEach(item => {
+        const inspNameOpt = inspectorKey ? item[inspectorKey] : null;
+        const iTypeOpt = resolveInspectorType(inspNameOpt, item);
+        if (activeTab !== 'SUMMARY RFT' && iTypeOpt !== activeTab) return;
+
+        if (filters.inspectorType && filters.inspectorType.length > 0) {
+          if (!filters.inspectorType.includes(iTypeOpt)) return;
+        }
+
+        const dateOk = checkDateInRange(item);
+        if (!dateOk) return;
+
+        const otherFiltersOk = Object.keys(filterKeys).every(fKey => {
+          const filterValue = filters[fKey];
+          if (Array.isArray(filterValue) && filterValue.length > 0) {
+            const itemKey = filterKeys[fKey];
+            return itemKey && filterValue.includes(String(item[itemKey]));
+          }
+          return true;
+        });
+
+        if (otherFiltersOk) {
+          for (let i = 1; i <= 25; i++) {
+            const nKey = defectNameKeys[i];
+            const qKey = defectQtyKeys[i];
+            if (nKey && qKey) {
+              const name = item[nKey];
+              const qty = parseNumber(item[qKey]);
+              if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
+                optSet.add(name.trim());
+              }
+            }
+          }
+        }
+      });
+      return Array.from(optSet).sort();
+    };
+
     return {
       factory: getOptionsForField('factory'),
       cell: getOptionsForField('cell'),
       model: getOptionsForField('model'),
       po: getOptionsForField('po'),
       inspector: getOptionsForField('inspector'),
-      article: getOptionsForField('article')
+      article: getOptionsForField('article'),
+      defectName: getOptionsForDefectName()
     };
   }, [data.raw, filters, activeTab, inspectorTypeMap]);
 
@@ -229,21 +291,30 @@ const Dashboard = () => {
 
     const firstItem = data.raw[0] || {};
     const dateKey = findKey(firstItem, 'date');
-    
+
     // Pre-find keys for each active filter
     const activeFilterKeys = {};
     Object.keys(filters).forEach(fKey => {
-      if (fKey !== 'startDate' && fKey !== 'endDate' && fKey !== 'inspectorType') {
+      if (fKey !== 'startDate' && fKey !== 'endDate' && fKey !== 'inspectorType' && fKey !== 'defectName') {
         activeFilterKeys[fKey] = findKey(firstItem, fKey);
       }
     });
+
+    const defectNameKeys = [];
+    const defectQtyKeys = [];
+    if (filters.defectName && filters.defectName.length > 0) {
+      for (let i = 1; i <= 25; i++) {
+        defectNameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+        defectQtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+      }
+    }
     const inspectorKeyFD = findKey(firstItem, 'inspector');
 
     const checkDateInRange = (item) => {
       if (!dateKey) return true;
       const dateStr = item[dateKey];
       if (!dateStr) return false;
-      
+
       let itemDate;
       if (dateStr.includes('/')) {
         const [d, m, y] = dateStr.split('/').map(Number);
@@ -255,7 +326,7 @@ const Dashboard = () => {
       if (isNaN(itemDate.getTime())) return false;
       itemDate.setHours(0, 0, 0, 0);
       const itemTime = itemDate.getTime();
-      
+
       const start = filters.startDate !== 'ALL' ? new Date(filters.startDate) : null;
       if (start) start.setHours(0, 0, 0, 0);
       const startTime = start ? start.getTime() : -Infinity;
@@ -286,7 +357,9 @@ const Dashboard = () => {
       });
       if (!matchGeneral) return false;
 
-      // 3. Date range filter
+      // 3. Defect Name filter intentionally omitted here (processed in DashboardContentView)
+
+      // 4. Date range filter
       if (filters.startDate === 'ALL' && filters.endDate === 'ALL') return true;
       return checkDateInRange(item);
     });
@@ -299,7 +372,7 @@ const Dashboard = () => {
     const inspectorKey = findKey(firstItem, 'inspector');
     return filteredData.filter(item => {
       const inspName = inspectorKey ? item[inspectorKey] : null;
-      return resolveInspectorType(inspName, item) === 'PSI';
+      return resolveInspectorType(inspName, item) === 'PSI LV.2';
     });
   }, [filteredData, data.raw, inspectorTypeMap]);
 
@@ -337,11 +410,12 @@ const Dashboard = () => {
       // ── FACTORY changed: reset dependent filters so data shows for selected factory/factories ──
       // Cell/model/po options will be cross-filtered by getOptionsForField automatically.
       if (key === 'factory') {
-        nextFilters.cell      = [];
-        nextFilters.model     = [];
-        nextFilters.po        = [];
-        nextFilters.article   = [];
+        nextFilters.cell = [];
+        nextFilters.model = [];
+        nextFilters.po = [];
+        nextFilters.article = [];
         nextFilters.inspector = [];
+        nextFilters.defectName = [];
       }
 
       // ── CELL selected: auto-propagate factory ──
@@ -363,7 +437,7 @@ const Dashboard = () => {
 
       // ── Smart date expansion ──
       // If the selected factory/cell has no data in current date range, expand to ALL
-      if (['cell', 'factory', 'model', 'po', 'inspector', 'article'].includes(key) && Array.isArray(value) && value.length > 0) {
+      if (['cell', 'factory', 'model', 'po', 'inspector', 'article', 'defectName'].includes(key) && Array.isArray(value) && value.length > 0) {
         const dateKey = findKey(firstItem, 'date');
         const filterColKey = findKey(firstItem, key);
         if (dateKey && filterColKey) {
@@ -415,12 +489,13 @@ const Dashboard = () => {
       po: [],
       inspector: [],
       article: [],
+      defectName: [],
     }));
   };
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    
+
     // Find default date to reset back to initial state
     let defaultDate = 'ALL';
     if (data.raw && data.raw.length > 0) {
@@ -454,7 +529,8 @@ const Dashboard = () => {
       model: [],
       po: [],
       inspector: [],
-      inspectorType: []
+      inspectorType: [],
+      defectName: []
     });
   };
 
@@ -464,13 +540,20 @@ const Dashboard = () => {
     <div className="bg-[#0A0520] min-h-screen w-full flex flex-col items-stretch p-3 md:p-5 overflow-x-hidden">
       {/* Non-canvas filter area */}
       <div className="w-full mb-3">
-        <FilterPanel 
-          filters={filters} 
-          options={options} 
+        <FilterPanel
+          filters={filters}
+          options={options}
           onFilterChange={handleFilterChange}
           onDateRangeChange={handleDateRangeChange}
           activeTab={activeTab}
           onTabChange={handleTabChange}
+          onExportPsiEmail={() => {
+            if (activeTab === '3rd Party') {
+              setIsExportingAqlEmail(true);
+            } else {
+              setIsExportingPsiEmail(true);
+            }
+          }}
           onExportPDF={async () => {
             if (viewMode === 'summary') {
               setExportStatus({ visible: true, message: 'Capturing summary…', progress: 0, total: 0 });
@@ -485,13 +568,13 @@ const Dashboard = () => {
               exportToExcelRFT(tabFilteredData, data.raw, resolveInspectorType, 'Summary_RFT_Report.xls');
             } else {
               const filename = `Inspection_Detail_${activeTab ? activeTab.replace(/\s+/g, '_') : 'Report'}.xls`;
-              exportToExcelDetail(tabFilteredData, data.raw, resolveInspectorType, activeTab, filename);
+              exportToExcelDetail(tabFilteredData, data.raw, resolveInspectorType, activeTab, filename, filters.defectName);
             }
           }}
           onSummary={() => {
             if (viewMode === 'summary') {
               if (activeTab === 'SUMMARY RFT') {
-                setActiveTab('CFA');
+                setActiveTab('PSI LV.2');
               }
               setViewMode('dashboard');
             } else {
@@ -548,6 +631,38 @@ const Dashboard = () => {
           }
           onDone={() => {
             setIsExportingDashboard(false);
+            setExportStatus({ visible: false, message: '', progress: 0, total: 0 });
+          }}
+        />
+      )}
+
+      {/* PSI Email Panoramic Export — off-screen renderer */}
+      {isExportingPsiEmail && (
+        <PsiEmailExportController
+          psiData={psiFilteredData}
+          rawData={data.raw}
+          filters={filters}
+          onProgress={(msg, cur, tot) =>
+            setExportStatus({ visible: true, message: msg, progress: cur, total: tot })
+          }
+          onDone={() => {
+            setIsExportingPsiEmail(false);
+            setExportStatus({ visible: false, message: '', progress: 0, total: 0 });
+          }}
+        />
+      )}
+
+      {/* AQL 3rd Party Email Panoramic Export — off-screen renderer */}
+      {isExportingAqlEmail && (
+        <AqlEmailExportController
+          aqlData={tabFilteredData}
+          rawData={data.raw}
+          filters={effectiveFilters}
+          onProgress={(msg, cur, tot) =>
+            setExportStatus({ visible: true, message: msg, progress: cur, total: tot })
+          }
+          onDone={() => {
+            setIsExportingAqlEmail(false);
             setExportStatus({ visible: false, message: '', progress: 0, total: 0 });
           }}
         />

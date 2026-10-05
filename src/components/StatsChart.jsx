@@ -33,7 +33,7 @@ const CustomXAxisTick = (props) => {
   if (!payload || !payload.value) return null;
   const parts = String(payload.value).split('\n');
   const dateStr = parts[0] || '';
-  const dayStr  = parts[1] || '';
+  const dayStr = parts[1] || '';
 
   return (
     <g transform={`translate(${x},${y})`}>
@@ -55,14 +55,10 @@ const StatsChart = ({ data = [], rawData = [] }) => {
   }
 
   const firstItem = rawData[0] || {};
-  const dateKey   = findKey(firstItem, 'date');
-  const qtyInsKey = findKey(firstItem, 'qty_inspection') || 'qty_inspection';
-  const rftKey    = findKey(firstItem, 'rft');
-
-  const qtyDefectKeys = [];
-  for (let i = 1; i <= 25; i++) {
-    qtyDefectKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
-  }
+  const dateKey = findKey(firstItem, 'date');
+  const qtyInsKey = findKey(firstItem, 'qty_inspection', 'qty inspection') || 'qty_inspection';
+  const aGradeKey = findKey(firstItem, 'total_a_grade', 'total a grade', 'a_grade', 'a grade', 'agrade', 'a-grade', 'grade_a', 'grade a') || 'a_grade';
+  const rftKey = findKey(firstItem, 'rft');
 
   // Group by date
   const groups = {};
@@ -83,14 +79,12 @@ const StatsChart = ({ data = [], rawData = [] }) => {
     const isoStr = toLocalISODate(dateObj);
 
     if (!groups[isoStr]) {
-      groups[isoStr] = { dateObj, qtyInspection: 0, qtyDefects: 0, rftSum: 0, rftCount: 0 };
+      groups[isoStr] = { dateObj, qtyInspection: 0, aGrade: 0, rftSum: 0, rftCount: 0 };
     }
 
     groups[isoStr].qtyInspection += parseNumber(item[qtyInsKey]);
-    for (let i = 1; i <= 25; i++) {
-      const key = qtyDefectKeys[i];
-      if (key) groups[isoStr].qtyDefects += parseNumber(item[key]);
-    }
+    groups[isoStr].aGrade += parseNumber(item[aGradeKey]);
+
     if (rftKey) {
       const val = parsePercent(item[rftKey]);
       if (val !== null) {
@@ -106,8 +100,8 @@ const StatsChart = ({ data = [], rawData = [] }) => {
       const rft = g.rftCount > 0
         ? parseFloat((g.rftSum / g.rftCount).toFixed(1))
         : (g.qtyInspection > 0
-            ? parseFloat((((g.qtyInspection - g.qtyDefects) / g.qtyInspection) * 100).toFixed(1))
-            : 0);
+          ? parseFloat(((g.aGrade / g.qtyInspection) * 100).toFixed(1))
+          : 0);
 
       const daysEng = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayName = daysEng[g.dateObj.getDay()];

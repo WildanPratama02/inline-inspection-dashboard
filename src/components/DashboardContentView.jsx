@@ -22,7 +22,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     const qtyOrderKey = findKey(firstItem, 'qty_order', 'qty order');
     // Total defect: prefer pre-computed column, fall back to summing defect slots
     const totalDefectKey = findKey(firstItem, 'total_defect', 'total defect', 'qty_defect', 'qty defect');
-    const aGradeKey = findKey(firstItem, 'a_grade', 'a grade', 'agrade');
+    const aGradeKey = findKey(firstItem, 'total_a_grade', 'total a grade', 'a_grade', 'a grade', 'agrade', 'a-grade', 'grade_a', 'grade a');
     const bGradeKey = findKey(firstItem, 'b_grade', 'b grade', 'bgrade', 'avg_b_grade', 'avg b grade');
     // Pre-computed RFT & defect rate columns from sheet
     const rftKey = findKey(firstItem, 'rft');
@@ -32,9 +32,11 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     // Defect slot keys — qty + classification (up to 25 slots)
     const qtyDefectKeys = [];
     const classificationKeys = [];
+    const defectNameKeys = [];
     for (let i = 1; i <= 25; i++) {
       qtyDefectKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
       classificationKeys[i] = findKey(firstItem, `classification_${i}`, `classification ${i}`, `clasification_${i}`, `clasification ${i}`);
+      defectNameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
     }
 
     // ── Aggregation ──
@@ -51,30 +53,70 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     let totalMajor = 0;
     let totalMinor = 0;
 
+    const isDefectFiltered = filters && filters.defectName && filters.defectName.length > 0;
+
     data.forEach(item => {
-      totalInspection += parseNumber(item[qtyInsKey]);
+      const rowInspection = parseNumber(item[qtyInsKey]);
+
+
+
+      let thisRowFilteredDefects = 0;
+      let thisRowFilteredBGrade = 0;
+
+      const rowBGrade = parseNumber(item[bGradeKey]);
+      const rowTotalDefect = totalDefectKey ? parseNumber(item[totalDefectKey]) : 0;
+
+      if (isDefectFiltered) {
+        for (let i = 1; i <= 25; i++) {
+          const dName = defectNameKeys[i] ? item[defectNameKeys[i]] : null;
+          if (dName && filters.defectName.includes(dName.trim())) {
+            const defectQty = parseNumber(item[qtyDefectKeys[i]]);
+            thisRowFilteredDefects += defectQty;
+
+            // If classification mentions B-Grade, precisely use it. Otherwise, assume proportional distribution.
+            const cls = classificationKeys[i] ? String(item[classificationKeys[i]] || '').trim().toUpperCase() : '';
+            if (cls.includes('B-GRADE') || cls.includes('B GRADE') || cls.includes('BGRADE')) {
+              thisRowFilteredBGrade += defectQty;
+            } else if (rowTotalDefect > 0 && rowBGrade > 0 && !cls.includes('C-GRADE') && !cls.includes('C GRADE')) {
+              // Proportional B-Grade distribution for unspecified classification
+              thisRowFilteredBGrade += (rowBGrade / rowTotalDefect) * defectQty;
+            }
+          }
+        }
+      }
+
+      totalInspection += rowInspection;
       totalAGrade += parseNumber(item[aGradeKey]);
-      totalBGrade += parseNumber(item[bGradeKey]);
       totalAGradeFull += parseNumber(item[totalAGradeKey]);
+
+      if (isDefectFiltered) {
+        totalDefects += thisRowFilteredDefects;
+        totalBGrade += Math.round(thisRowFilteredBGrade);
+      } else {
+        totalBGrade += rowBGrade;
+        // Total defect: use pre-computed column if available
+        if (totalDefectKey) {
+          totalDefects += rowTotalDefect;
+        } else {
+          for (let i = 1; i <= 25; i++) {
+            if (qtyDefectKeys[i]) totalDefects += parseNumber(item[qtyDefectKeys[i]]);
+          }
+        }
+      }
 
       // Sum critical / major / minor from classification slots
       for (let i = 1; i <= 25; i++) {
         if (!qtyDefectKeys[i] && !classificationKeys[i]) continue;
         const qty = parseNumber(item[qtyDefectKeys[i]]);
         const cls = classificationKeys[i] ? String(item[classificationKeys[i]] || '').trim().toUpperCase() : '';
+        const dName = defectNameKeys[i] ? item[defectNameKeys[i]] : null;
+
         if (qty <= 0) continue;
+        if (isDefectFiltered && dName && !filters.defectName.includes(dName.trim())) continue;
+
         if (cls.includes('CRITICAL')) totalCritical += qty;
         else if (cls.includes('MAJOR')) totalMajor += qty;
         else if (cls.includes('MINOR')) totalMinor += qty;
-      }
-
-      // Total defect: use pre-computed column if available
-      if (totalDefectKey) {
-        totalDefects += parseNumber(item[totalDefectKey]);
-      } else {
-        for (let i = 1; i <= 25; i++) {
-          if (qtyDefectKeys[i]) totalDefects += parseNumber(item[qtyDefectKeys[i]]);
-        }
       }
 
       // Collect RFT per row for AVERAGE calculation
@@ -116,12 +158,17 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       : maxFallbackOrder;
 
     // ── RFT & PASS RATE BUILDING ──
-    const rftVal = countRft > 0
+    const psiRftVal = totalInspection > 0
+      ? ((totalAGrade / totalInspection) * 100)
+      : 0;
+
+    const otherRftVal = countRft > 0
       ? (sumRft / countRft)
       : (totalInspection > 0
         ? (((totalInspection - totalDefects) / totalInspection) * 100)
         : 0);
 
+    const rftVal = currentTab.includes('PSI') ? psiRftVal : otherRftVal;
     const rft = rftVal > 0 ? rftVal.toFixed(1) : '0.0';
 
     // Pass Rate Building matching table total for 3rd Party
@@ -134,8 +181,11 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       ? passRateBuildingVal.toFixed(1)
       : '0.0';
 
-    // PSI Defect Rate: 100 - RFT
-    const psiDefectRate = rftVal > 0 ? (100 - parseFloat(rft)).toFixed(1) : '0.0';
+    // PSI Defect Rate: (QTY DEFECT / QTY INSPECTION) * 100%
+    const psiDefectRateVal = totalInspection > 0
+      ? ((totalDefects / totalInspection) * 100)
+      : 0;
+    const psiDefectRate = psiDefectRateVal > 0 ? psiDefectRateVal.toFixed(1) : '0.0';
 
     const defectRate = is3rdParty ? passRateBuilding : psiDefectRate;
 
@@ -154,7 +204,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       majorDefect: totalMajor,
       minorDefect: totalMinor
     };
-  }, [data, rawData, is3rdParty]);
+  }, [data, rawData, is3rdParty, currentTab]);
 
   const defectStats = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -193,6 +243,11 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
         if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
           const normalizedName = name.trim();
+
+          if (filters && filters.defectName && filters.defectName.length > 0) {
+            if (!filters.defectName.includes(normalizedName)) continue;
+          }
+
           counts[normalizedName] = (counts[normalizedName] || 0) + qty;
 
           if (url && url !== '-') {
@@ -213,7 +268,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       .map(([name, value]) => ({ name, value, url: imageSelections[name]?.url || null }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [data, rawData]);
+  }, [data, rawData, filters]);
 
   const defectImages = useMemo(() => {
     // If pre-loaded images are provided (PDF export), use them directly
@@ -244,9 +299,9 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       const key = findKey(rawData[0], rawKey);
       if (!key) return '-';
       const vals = new Set();
-      (data.length > 0 ? data : [first]).forEach(item => {
+      (data || []).forEach(item => {
         const v = item[key];
-        if (v && v !== '-') vals.add(String(v));
+        if (v && String(v).trim() !== '' && String(v).trim() !== '-') vals.add(String(v).trim());
       });
       return vals.size > 0 ? Array.from(vals).sort().join(', ') : '-';
     };
@@ -255,7 +310,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     let poPass = 0;
     let poFail = 0;
     const statusPoKey = findKey(rawData[0], 'status_po', 'status po', 'status_inspection', 'status inspection', 'status', 'result', 'pass_fail');
-    (data.length > 0 ? data : [first]).forEach(item => {
+    (data || []).forEach(item => {
       if (!statusPoKey || item[statusPoKey] === undefined || item[statusPoKey] === null || item[statusPoKey] === '') return;
       const s = String(item[statusPoKey]).trim().toUpperCase();
       if (s.includes('FAIL') || s.includes('REJECT') || s === 'F') poFail++;
@@ -286,7 +341,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       inspectorType: filters && filters.inspectorType && filters.inspectorType.length > 0
         ? filters.inspectorType.join(' / ')
         : null,
-      crdDate: first[crdKey] || '-',
+      crdDate: (() => { const v = getAllValues('crd'); return (v && v !== '-') ? v : (first[crdKey] || '-'); })(),
       statusPo,
       statusPoHeader,
       passRate,
@@ -299,48 +354,75 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
   return (
     <div id={id} className="industrial-border bg-primary p-4 relative w-full rounded-sm flex flex-col gap-3">
 
-      {/* ── Header bar khusus AQL 3rd Party: FACTORY + STATUS PO + PASS RATE ── */}
-      {currentTab === '3rd Party' && headerMetadata.factory && headerMetadata.factory !== '-' && (
-        <div className="industrial-border bg-white/5 rounded-sm px-3 py-2 flex items-center gap-3 mb-3 overflow-hidden">
-          <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">FACTORY</span>
-          <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.factory}</span>
-          {/* STATUS PO badge — hanya tampil jika single PO filter (PASS atau FAIL) */}
-          {headerMetadata.statusPoHeader && headerMetadata.statusPoHeader !== 'MIXED' && (
-            <div className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-sm industrial-border min-w-[72px] shrink-0 ${
-              headerMetadata.statusPoHeader === 'PASS'
-                ? 'bg-emerald-600/80 border-emerald-400/40'
-                : 'bg-rose-700/80 border-rose-400/40'
-            }`}>
-              <span className="text-[9px] uppercase font-bold text-white/70 tracking-widest leading-none mb-0.5 whitespace-nowrap">STATUS PO</span>
-              <span className={`text-[13px] font-black tracking-wide leading-none ${
-                headerMetadata.statusPoHeader === 'PASS' ? 'text-emerald-200' : 'text-rose-200'
-              }`}>{headerMetadata.statusPoHeader}</span>
+      {/* ── ON PROGRESS Banner for CFA & T1QM ── */}
+      {['T1QM 1', 'T1QM 2', 'T1QM 3'].includes(currentTab) && (
+        <div className="industrial-border bg-amber-950/40 border-amber-500/40 rounded-sm p-3.5 flex items-center justify-between gap-4 text-amber-200">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🚧</span>
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                <span>FITUR {currentTab === 'CFA' ? 'AQL CFA' : currentTab} SEDANG DALAM PENGEMBANGAN</span>
+              </div>
+              <div className="text-[11px] text-amber-200/70 mt-0.5">
+                Pengolahan dan integrasi data untuk menu ini masih dalam proses (On Progress / Belum Jadi).
+              </div>
             </div>
-          )}
-          {/* Pass Rate badge */}
-          {headerMetadata.passRate !== null && headerMetadata.passRate !== undefined && (
-            <div className={`flex flex-row items-center justify-center gap-3 px-5 py-2 rounded-sm industrial-border min-w-[120px] shrink-0 ${parseFloat(headerMetadata.passRate) >= 90
-              ? 'bg-emerald-600/80 border-emerald-400/40'
-              : parseFloat(headerMetadata.passRate) >= 70
-                ? 'bg-amber-600/80 border-amber-400/40'
-                : 'bg-rose-700/80 border-rose-400/40'
-              }`}>
-              <span className="text-[11px] uppercase font-bold text-white/70 tracking-widest whitespace-nowrap">PASS RATE</span>
-              <span className={`text-[16px] font-black tracking-wide whitespace-nowrap ${parseFloat(headerMetadata.passRate) >= 90
-                ? 'text-emerald-200'
-                : parseFloat(headerMetadata.passRate) >= 70
-                  ? 'text-amber-200'
-                  : 'text-rose-200'
-                }`}>{headerMetadata.passRate}%</span>
-            </div>
-          )}
+          </div>
+          <div className="px-3 py-1 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300 uppercase tracking-widest shrink-0 animate-pulse">
+            ON PROGRESS
+          </div>
         </div>
       )}
 
-      {/* ── Header bar untuk PSI: FACTORY + STATUS PO ── */}
-      {currentTab === 'PSI' && headerMetadata.factory && headerMetadata.factory !== '-' && (
+      {/* ── Header bar khusus AQL 3rd Party & CFA: FACTORY/BUILDING + STATUS PO + PASS RATE ── */}
+      {['3rd Party', 'CFA'].includes(currentTab) && headerMetadata.factory && headerMetadata.factory !== '-' && (
         <div className="industrial-border bg-white/5 rounded-sm px-3 py-2 flex items-center gap-3 mb-3 overflow-hidden">
-          <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">FACTORY</span>
+          <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">
+            {currentTab === 'CFA' ? 'BUILDING' : 'FACTORY'}
+          </span>
+          <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.factory}</span>
+          {/* STATUS PO badge — hanya tampil jika single PO filter (PASS atau FAIL) */}
+          {headerMetadata.statusPoHeader && headerMetadata.statusPoHeader !== 'MIXED' && (
+            <div className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-sm industrial-border min-w-[72px] shrink-0 ${headerMetadata.statusPoHeader === 'PASS'
+              ? 'bg-emerald-600/80 border-emerald-400/40'
+              : 'bg-rose-700/80 border-rose-400/40'
+              }`}>
+              <span className="text-[9px] uppercase font-bold text-white/70 tracking-widest leading-none mb-0.5 whitespace-nowrap">STATUS PO</span>
+              <span className={`text-[13px] font-black tracking-wide leading-none ${headerMetadata.statusPoHeader === 'PASS' ? 'text-emerald-200' : 'text-rose-200'
+                }`}>{headerMetadata.statusPoHeader}</span>
+            </div>
+          )}
+          {/* Pass Rate badge */}
+          {(() => {
+            const displayPassRate = currentTab === 'CFA' ? kpis.rft : headerMetadata.passRate;
+            if (displayPassRate !== null && displayPassRate !== undefined) {
+              const passRateNum = parseFloat(displayPassRate);
+              return (
+                <div className={`flex flex-row items-center justify-center gap-3 px-5 py-2 rounded-sm industrial-border min-w-[120px] shrink-0 ${passRateNum >= 90
+                  ? 'bg-emerald-600/80 border-emerald-400/40'
+                  : passRateNum >= 70
+                    ? 'bg-amber-600/80 border-amber-400/40'
+                    : 'bg-rose-700/80 border-rose-400/40'
+                  }`}>
+                  <span className="text-[11px] uppercase font-bold text-white/70 tracking-widest whitespace-nowrap">PASS RATE</span>
+                  <span className={`text-[16px] font-black tracking-wide whitespace-nowrap ${passRateNum >= 90
+                    ? 'text-emerald-200'
+                    : passRateNum >= 70
+                      ? 'text-amber-200'
+                      : 'text-rose-200'
+                    }`}>{displayPassRate}%</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+        </div>
+      )}
+
+      {/* ── Header bar untuk PSI: BUILDING + STATUS PO ── */}
+      {['PSI LV.1', 'PSI LV.2'].includes(currentTab) && headerMetadata.factory && headerMetadata.factory !== '-' && (
+        <div className="industrial-border bg-white/5 rounded-sm px-3 py-2 flex items-center gap-3 mb-3 overflow-hidden">
+          <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">BUILDING</span>
           <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.factory}</span>
           {/* Status PO badge */}
           {headerMetadata.statusPo && (
@@ -363,7 +445,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       )}
 
       {/* ── Header bar untuk CFA, T1QM: INSPECTOR + STATUS PO ── */}
-      {currentTab !== '3rd Party' && currentTab !== 'PSI' && headerMetadata.inspector && headerMetadata.inspector !== '-' && (
+      {currentTab !== '3rd Party' && !['PSI LV.1', 'PSI LV.2'].includes(currentTab) && headerMetadata.inspector && headerMetadata.inspector !== '-' && (
         <div className="industrial-border bg-white/5 rounded-sm px-3 py-2 flex items-center gap-3 mb-3 overflow-hidden">
           <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">INSPECTOR</span>
           <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.inspector}</span>
@@ -398,46 +480,62 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
             {/* ── ROW 1 ── */}
             {/* PO */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">PO</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.po || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">PO</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.po || '-'}</span>
+              </div>
             </div>
             {/* Model */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">MODEL</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.model || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">MODEL</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.model || '-'}</span>
+              </div>
             </div>
             {/* CRD */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">CRD</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.crdDate || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">{currentTab === 'CFA' ? 'DESTINATION' : 'CRD'}</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.crdDate || '-'}</span>
+              </div>
             </div>
             {/* Destinasi */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">DESTINATION</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.destinasi || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">{currentTab === 'CFA' ? 'FINISH PROD' : 'DESTINATION'}</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.destinasi || '-'}</span>
+              </div>
             </div>
 
             {/* ── ROW 2 ── */}
             {/* Article */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">ARTICLE</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.article || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">ARTICLE</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.article || '-'}</span>
+              </div>
             </div>
-            {/* Factory */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">FACTORY</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.factory || '-'}</span>
+            {/* Factory / Building */}
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">{['PSI LV.1', 'PSI LV.2'].includes(currentTab) ? 'BUILDING' : 'FACTORY'}</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.factory || '-'}</span>
+              </div>
             </div>
             {/* Cell */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">CELL / LINE</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.cell || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">CELL / LINE</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.cell || '-'}</span>
+              </div>
             </div>
             {/* Date */}
-            <div className="industrial-border px-2 py-1 bg-white/5 rounded-sm flex flex-col items-center justify-center h-[76px] overflow-y-auto custom-scrollbar">
-              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap">DATE</span>
-              <span className="w-full text-center text-[11px] font-bold text-white leading-snug whitespace-pre-wrap [word-break:keep-all]">{headerMetadata.date || '-'}</span>
+            <div className="industrial-border px-2 py-1.5 bg-white/5 rounded-sm flex flex-col items-center h-[76px] overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-white/40 tracking-wider mb-0.5 whitespace-nowrap shrink-0">{currentTab === 'CFA' ? 'INSPECTION DATE' : 'DATE'}</span>
+              <div className="w-full flex-1 overflow-y-auto custom-scrollbar flex flex-col items-center min-h-0">
+                <span className="w-full text-center text-[11px] font-bold text-white leading-snug break-words my-auto">{headerMetadata.date || '-'}</span>
+              </div>
             </div>
 
           </div>
@@ -460,7 +558,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
                 <DefectChart data={defectStats} />
               </div>
               <div className="industrial-border bg-white/5 p-3">
-                <StatsChart data={data} rawData={rawData} />
+                <StatsChart data={data} rawData={rawData} filters={filters} />
               </div>
             </>
           )}

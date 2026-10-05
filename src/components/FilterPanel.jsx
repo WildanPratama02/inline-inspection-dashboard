@@ -1,59 +1,85 @@
 import DateRangePicker from './DateRangePicker';
 import MultiSelect from './MultiSelect';
 
-const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onExport, onExportPDF, onExportExcel, onSummary, viewMode, activeTab, onTabChange }) => {
+const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onExport, onExportPDF, onExportPsiEmail, onExportExcel, onSummary, viewMode, activeTab, onTabChange }) => {
   return (
     <div className="flex flex-col gap-0">
       {/* Row 0: Menu Tabs */}
       <div className="flex items-center gap-0">
         <button
           onClick={() => onTabChange('CFA')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${
-            activeTab === 'CFA'
-              ? 'bg-primary text-white border-white/30'
-              : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-          }`}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'CFA'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
         >
-          CFA
+          CFA Validation By T1QM
+          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
         </button>
         <button
-          onClick={() => onTabChange('PSI')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${
-            activeTab === 'PSI'
-              ? 'bg-primary text-white border-white/30'
-              : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-          }`}
+          onClick={() => onTabChange('PSI LV.1')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === 'PSI LV.1'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
         >
-          PSI
+          PSI LV.1
+        </button>
+        <button
+          onClick={() => onTabChange('PSI LV.2')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === 'PSI LV.2'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
+        >
+          PSI LV.2
         </button>
         <button
           onClick={() => onTabChange('3rd Party')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${
-            activeTab === '3rd Party'
-              ? 'bg-primary text-white border-white/30'
-              : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-          }`}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === '3rd Party'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
         >
           AQL 3rd Party
         </button>
         <button
-          onClick={() => onTabChange('T1QM')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${
-            activeTab === 'T1QM'
-              ? 'bg-primary text-white border-white/30'
-              : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-          }`}
+          onClick={() => onTabChange('T1QM 1')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM 1'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
         >
-          T1QM
+          T1QM 1
+          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
+        </button>
+        <button
+          onClick={() => onTabChange('T1QM 2')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM 2'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
+        >
+          T1QM 2
+          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
+        </button>
+        <button
+          onClick={() => onTabChange('T1QM 3')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM 3'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
+        >
+          T1QM 3
+          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
         </button>
         {viewMode === 'summary' && (
           <button
             onClick={() => onTabChange('SUMMARY RFT')}
-            className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${
-              activeTab === 'SUMMARY RFT'
-                ? 'bg-primary text-white border-white/30'
-                : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-            }`}
+            className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === 'SUMMARY RFT'
+              ? 'bg-primary text-white border-white/30'
+              : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+              }`}
           >
             Summary RFT
           </button>
@@ -67,6 +93,14 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
           >
             {viewMode === 'summary' ? '← Dashboard' : 'Summary'}
           </button>
+          {(activeTab === 'PSI LV.1' || activeTab === 'PSI LV.2' || activeTab === '3rd Party') && (
+            <button
+              onClick={onExportPsiEmail}
+              className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-5 rounded transition-all shadow-lg uppercase text-[10px]"
+            >
+              EXPORT PDF EMAIL
+            </button>
+          )}
           <button
             onClick={onExportPDF || onExport}
             className="bg-accent hover:bg-orange-600 text-white font-bold py-1.5 px-5 rounded transition-all shadow-lg uppercase text-[10px]"
@@ -87,15 +121,16 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
         {/* Title */}
         <div className="flex items-center gap-2 mr-2 shrink-0 pb-1">
           <h1 className="text-base font-bold uppercase tracking-wide whitespace-nowrap">
-            {activeTab === 'CFA' ? 'AQL CFA' : activeTab === '3rd Party' ? 'AQL 3rd Party' : activeTab === 'T1QM' ? 'T1QM' : activeTab === 'SUMMARY RFT' ? 'Summary RFT' : '100% Inline Inspection'}
+            {activeTab === 'CFA' ? 'AQL CFA' : activeTab === '3rd Party' ? 'AQL 3rd Party' : activeTab === 'T1QM 1' ? 'T1QM 1' : activeTab === 'T1QM 2' ? 'T1QM 2' : activeTab === 'T1QM 3' ? 'T1QM 3' : activeTab === 'SUMMARY RFT' ? 'Summary RFT' : activeTab === 'PSI LV.2' ? 'PSI LV.2' : activeTab === 'PSI LV.1' ? 'PSI LV.1' : 'QUALITY INSPECTION PERFORMANCE'}
           </h1>
+
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-2 flex-1">
           <div className="flex flex-col">
             <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider ml-1">
-              DATE
+              {activeTab === 'CFA' ? 'INSPECTION DATE' : 'DATE'}
             </label>
             <DateRangePicker
               startDate={filters.startDate}
@@ -133,6 +168,14 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
             selected={filters.po}
             onChange={(val) => onFilterChange('po', val)}
           />
+          {(activeTab === 'PSI LV.2' || activeTab === '3rd Party') && (
+            <MultiSelect
+              label="DEFECT NAME"
+              options={options.defectName || []}
+              selected={filters.defectName}
+              onChange={(val) => onFilterChange('defectName', val)}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -8,6 +8,21 @@ export const findKey = (item, ...searchTerms) => {
     normalized: normalizeKey(key)
   }));
 
+  // 1. Exact match first across search terms
+  for (const term of searchTerms) {
+    const normalizedTerm = normalizeKey(term);
+    const match = entries.find((entry) => entry.normalized === normalizedTerm);
+    if (match) return match.key;
+  }
+
+  // 2. Starts with / prefix match
+  for (const term of searchTerms) {
+    const normalizedTerm = normalizeKey(term);
+    const match = entries.find((entry) => entry.normalized.startsWith(normalizedTerm));
+    if (match) return match.key;
+  }
+
+  // 3. Substring includes match
   for (const term of searchTerms) {
     const normalizedTerm = normalizeKey(term);
     const match = entries.find((entry) => entry.normalized.includes(normalizedTerm));
@@ -70,7 +85,7 @@ export const formatDateStr = (dateStr) => {
 
 export const getWeekStart = (dateStr) => {
   if (!dateStr) return '';
-  
+
   let d;
   if (String(dateStr).includes('/')) {
     const [day, month, year] = String(dateStr).split('/').map(Number);
@@ -78,7 +93,7 @@ export const getWeekStart = (dateStr) => {
   } else {
     d = new Date(dateStr);
   }
-  
+
   if (isNaN(d.getTime())) return '';
   const day = d.getDay(); // 0=Sun
   const diff = day === 0 ? -6 : 1 - day; // shift to Monday
@@ -88,8 +103,8 @@ export const getWeekStart = (dateStr) => {
 };
 
 export const getWeekLabel = (weekStartStr) => {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   let start;
   if (String(weekStartStr).includes('/')) {
     const [day, month, year] = String(weekStartStr).split('/').map(Number);
@@ -97,9 +112,9 @@ export const getWeekLabel = (weekStartStr) => {
   } else {
     start = new Date(weekStartStr);
   }
-  
+
   if (isNaN(start.getTime())) return weekStartStr;
-  
+
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   return `${start.getDate()} ${months[start.getMonth()]} - ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
@@ -124,23 +139,23 @@ export const INSPECTOR_TYPE_MAP = {
   'NIRMAL': '3rd Party',
   'SUMAN': '3rd Party',
   'BOYKE FERDIAN': '3rd Party',
-  'AGISTA RANZA ANJARI': 'PSI',
-  'HILHAM MUAZAM AUDA': 'PSI',
-  'AZZI FATHURIHMAN': 'PSI',
-  'RIVDA NOOR MAULIDYA': 'PSI',
+  'AGISTA RANZA ANJARI': 'PSI LV.2',
+  'HILHAM MUAZAM AUDA': 'PSI LV.2',
+  'AZZI FATHURIHMAN': 'PSI LV.2',
+  'RIVDA NOOR MAULIDYA': 'PSI LV.2',
   'ARUN': '3rd Party',
   'HARIS': '3rd Party',
   'M. ARIF SIDDIQ': '3rd Party',
   'SEPTI': '3rd Party',
   'MUNINDRA': '3rd Party',
-  'IDA NUR MALLA': 'PSI',
-  'UUN SEFTY WIDYA ASTUTI': 'PSI',
-  'NOOR ROKHMAH': 'PSI',
-  'AZIZAH': 'PSI',
+  'IDA NUR MALLA': 'PSI LV.2',
+  'UUN SEFTY WIDYA ASTUTI': 'PSI LV.2',
+  'NOOR ROKHMAH': 'PSI LV.2',
+  'AZIZAH': 'PSI LV.2',
   'ADRY RIZKI': '3rd Party',
   'SHIVAM JADON': '3rd Party',
   'DEEPAK': '3rd Party',
-  'REKA ARIBOWO': 'PSI',
+  'REKA ARIBOWO': 'PSI LV.2',
   'DADAN KHUSNUDZAN': '3rd Party',
   'ARIF SIDDIQ': '3rd Party',
   'NIKHIL': '3rd Party',
@@ -184,8 +199,9 @@ export const getInspectorType = (inspectorName, item) => {
       if (val.includes('T1QM') || val.includes('T1 QM') || val === 'T1QM' || val === 'T1') return 'T1QM';
       // Exact CFA match / CFA check
       if (val.includes('CFA')) return 'CFA';
-      // Exact PSI match
-      if (val === 'PSI') return 'PSI';
+      // Exact PSI or PSI LV.1 / LV.2 match
+      if (val === 'PSI LV.1' || val.includes('PSI LV.1') || val.includes('PSI LV. 1') || val.includes('PSI LV1')) return 'PSI LV.1';
+      if (val === 'PSI' || val.includes('PSI LV.2') || val.includes('PSI LV. 2') || val.includes('PSI LV2')) return 'PSI LV.2';
       // AQL 3rd Party variants: "AQL3rd Party", "AQL 3rd Party", "3rd Party", etc.
       if (val.includes('AQL') || val.includes('3RD PARTY') || val.includes('3R PARTY')) return '3rd Party';
       // Return 100% Inline directly or other types directly so they don't fall through to static lookup

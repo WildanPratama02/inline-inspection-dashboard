@@ -33,8 +33,8 @@ const computeChartData = (data, rawData) => {
   const dateKey    = findKey(first, 'date');
   const factoryKey = findKey(first, 'factory');
   const poKey      = findKey(first, 'po') || 'po';
-  const qtyInsKey  = findKey(first, 'qty_inspection') || 'qty_inspection';
-  const aGradeKey  = findKey(first, 'a_grade') || 'a_grade';
+  const qtyInsKey  = findKey(first, 'qty_inspection', 'qty inspection') || 'qty_inspection';
+  const aGradeKey  = findKey(first, 'total_a_grade', 'total a grade', 'a_grade', 'a grade', 'agrade', 'a-grade', 'grade_a', 'grade a') || 'a_grade';
   const bGradeKey  = findKey(first, 'avg b grade', 'avg_b_grade', 'b_grade') || 'b_grade';
 
   const defectKeys = [];
@@ -60,8 +60,9 @@ const computeChartData = (data, rawData) => {
 
     if (!dateFactoryMap[rawDate]) dateFactoryMap[rawDate] = {};
     if (!dateFactoryMap[rawDate][factory])
-      dateFactoryMap[rawDate][factory] = { inspection: 0, defects: 0 };
+      dateFactoryMap[rawDate][factory] = { inspection: 0, aGrade: 0, defects: 0 };
     dateFactoryMap[rawDate][factory].inspection += inspection;
+    dateFactoryMap[rawDate][factory].aGrade     += aGrade;
     dateFactoryMap[rawDate][factory].defects    += defects;
 
     if (!factoryTotalsMap[factory])
@@ -84,7 +85,7 @@ const computeChartData = (data, rawData) => {
       factories.forEach(f => {
         const fd = factoriesData[f];
         if (fd && fd.inspection > 0) {
-          const val = Math.round(((fd.inspection - fd.defects) / fd.inspection) * 1000) / 10;
+          const val = Math.round((fd.aGrade / fd.inspection) * 1000) / 10;
           row[f] = val;
         } else {
           row[f] = null;

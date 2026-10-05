@@ -138,8 +138,8 @@ const DashboardExportController = ({ filteredData, rawData, filters, activeTab, 
   const [preloadedImages, setPreloadedImages] = useState([]);
   const hasStarted = useRef(false);
 
-  const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
-  const isGroupByFactory = currentTab === 'PSI' || currentTab === '3rd Party';
+  const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI LV.2');
+  const isGroupByFactory = ['PSI LV.1', 'PSI LV.2', '3rd Party'].includes(currentTab);
 
   useEffect(() => {
     if (hasStarted.current) return;
@@ -225,20 +225,20 @@ const DashboardExportController = ({ filteredData, rawData, filters, activeTab, 
         // 3. Update state to render DashboardContentView with pre-loaded images
         const pageFilters = isGroupByFactory
           ? {
-              ...filters,
-              factory: [page.factory],
-              inspectorType: pageInspectorTypes.size > 0 
-                ? Array.from(pageInspectorTypes) 
-                : (filters.inspectorType && filters.inspectorType.length > 0 ? filters.inspectorType : [currentTab])
-            }
+            ...filters,
+            factory: [page.factory],
+            inspectorType: pageInspectorTypes.size > 0
+              ? Array.from(pageInspectorTypes)
+              : (filters.inspectorType && filters.inspectorType.length > 0 ? filters.inspectorType : [currentTab])
+          }
           : {
-              ...filters,
-              cell: [page.cell],
-              po: [page.po],
-              inspectorType: pageInspectorTypes.size > 0 
-                ? Array.from(pageInspectorTypes) 
-                : (filters.inspectorType && filters.inspectorType.length > 0 ? filters.inspectorType : [])
-            };
+            ...filters,
+            cell: [page.cell],
+            po: [page.po],
+            inspectorType: pageInspectorTypes.size > 0
+              ? Array.from(pageInspectorTypes)
+              : (filters.inspectorType && filters.inspectorType.length > 0 ? filters.inspectorType : [])
+          };
 
         // Use a promise to wait for React to render
         await new Promise((resolve) => {
