@@ -103,9 +103,9 @@ const CategoryTable = ({ title, icon, nameColumnLabel, rows, searchTerm, hidePas
 const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { cfaRows, psiLv1Rows, psiRows, party3Rows, t1qm1Rows, t1qm2Rows, t1qm3Rows } = useMemo(() => {
+  const { cfaRows, psiLv1Rows, psiRows, party3Rows, t1qmRows } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { cfaRows: [], psiLv1Rows: [], psiRows: [], party3Rows: [], t1qm1Rows: [], t1qm2Rows: [], t1qm3Rows: [] };
+      return { cfaRows: [], psiLv1Rows: [], psiRows: [], party3Rows: [], t1qmRows: [] };
     }
 
     const firstItem = rawData[0] || data[0] || {};
@@ -123,9 +123,7 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
       'PSI LV.1': [],
       'PSI LV.2': [],
       '3rd Party': [],
-      'T1QM 1': [],
-      'T1QM 2': [],
-      'T1QM 3': []
+      'T1QM': []
     };
 
     data.forEach(item => {
@@ -135,8 +133,12 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
       const inspName = String(item[inspectorKey] || '').trim();
       const iType = resolveInspectorType ? resolveInspectorType(inspName, item) : null;
 
-      if (iType && catItems[iType]) {
-        catItems[iType].push(item);
+      if (iType) {
+        if (iType.startsWith('T1QM') || iType === 'T1QM') {
+          catItems['T1QM'].push(item);
+        } else if (catItems[iType]) {
+          catItems[iType].push(item);
+        }
       }
     });
 
@@ -206,13 +208,11 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
       psiLv1Rows: processCategoryItems(catItems['PSI LV.1'], 'PSI LV.1'),
       psiRows: processCategoryItems(catItems['PSI LV.2'], 'PSI LV.2'),
       party3Rows: processCategoryItems(catItems['3rd Party'], '3rd Party'),
-      t1qm1Rows: processCategoryItems(catItems['T1QM 1'], 'T1QM 1'),
-      t1qm2Rows: processCategoryItems(catItems['T1QM 2'], 'T1QM 2'),
-      t1qm3Rows: processCategoryItems(catItems['T1QM 3'], 'T1QM 3')
+      t1qmRows: processCategoryItems(catItems['T1QM'], 'T1QM')
     };
   }, [data, rawData, resolveInspectorType]);
 
-  const totalAllInspections = cfaRows.length + psiLv1Rows.length + psiRows.length + party3Rows.length + t1qm1Rows.length + t1qm2Rows.length + t1qm3Rows.length;
+  const totalAllInspections = cfaRows.length + psiLv1Rows.length + psiRows.length + party3Rows.length + t1qmRows.length;
 
   return (
     <div className="industrial-border bg-primary p-4 relative w-full rounded-sm">
@@ -277,30 +277,12 @@ const SummaryPassRateTable = ({ data = [], rawData = [], resolveInspectorType })
           searchTerm={searchTerm}
         />
 
-        {/* Table 4: T1QM 1 */}
+        {/* Table 4: T1QM */}
         <CategoryTable
-          title="T1QM 1 SUMMARY"
+          title="T1QM SUMMARY"
           icon="🔍"
-          nameColumnLabel="T1QM 1 NAME"
-          rows={t1qm1Rows}
-          searchTerm={searchTerm}
-        />
-
-        {/* Table 5: T1QM 2 */}
-        <CategoryTable
-          title="T1QM 2 SUMMARY"
-          icon="🔍"
-          nameColumnLabel="T1QM 2 NAME"
-          rows={t1qm2Rows}
-          searchTerm={searchTerm}
-        />
-
-        {/* Table 6: T1QM 3 */}
-        <CategoryTable
-          title="T1QM 3 SUMMARY"
-          icon="🔍"
-          nameColumnLabel="T1QM 3 NAME"
-          rows={t1qm3Rows}
+          nameColumnLabel="T1QM NAME"
+          rows={t1qmRows}
           searchTerm={searchTerm}
         />
       </div>

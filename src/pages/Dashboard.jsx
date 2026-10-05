@@ -57,10 +57,8 @@ const Dashboard = () => {
       const typeVal = item.type_inspection || item.inspection_type || item.type_inspector || '';
       if (typeVal && typeVal.trim() !== '' && typeVal.trim() !== '-') {
         const v = typeVal.trim().toUpperCase();
-        if (v.includes('T1QM 1') || v.includes('T1 QM 1') || v === 'T1QM 1' || v === 'T1 1') return 'T1QM 1';
-        if (v.includes('T1QM 2') || v.includes('T1 QM 2') || v === 'T1QM 2' || v === 'T1 2') return 'T1QM 2';
-        if (v.includes('T1QM 3') || v.includes('T1 QM 3') || v === 'T1QM 3' || v === 'T1 3') return 'T1QM 3';
-        if (v.includes('T1QM') || v.includes('T1 QM') || v === 'T1QM' || v === 'T1') return 'T1QM 1';
+        if (v.includes('T1QM') || v.includes('T1 QM') || v === 'T1QM' || v === 'T1') return 'T1QM';
+        if (v.includes('CFA VALIDATION')) return 'CFA VALIDATION';
         if (v.includes('CFA')) return 'CFA';
         if (v === 'PSI LV.1' || v.includes('PSI LV.1') || v.includes('PSI LV. 1') || v.includes('PSI LV1')) return 'PSI LV.1';
         if (v === 'PSI' || v.includes('PSI LV.2') || v.includes('PSI LV. 2') || v.includes('PSI LV2')) return 'PSI LV.2';
@@ -126,10 +124,8 @@ const Dashboard = () => {
           const name = (item.inspector || '').trim().toUpperCase();
           const typeVal = (item.type_inspection || item.inspection_type || '').trim().toUpperCase();
           if (name && typeVal && typeVal !== '' && typeVal !== '-' && !dynamicMap[name]) {
-            if (typeVal.includes('T1QM 1') || typeVal.includes('T1 QM 1') || typeVal === 'T1QM 1' || typeVal === 'T1 1') dynamicMap[name] = 'T1QM 1';
-            else if (typeVal.includes('T1QM 2') || typeVal.includes('T1 QM 2') || typeVal === 'T1QM 2' || typeVal === 'T1 2') dynamicMap[name] = 'T1QM 2';
-            else if (typeVal.includes('T1QM 3') || typeVal.includes('T1 QM 3') || typeVal === 'T1QM 3' || typeVal === 'T1 3') dynamicMap[name] = 'T1QM 3';
-            else if (typeVal.includes('T1QM') || typeVal.includes('T1 QM') || typeVal === 'T1QM' || typeVal === 'T1') dynamicMap[name] = 'T1QM 1';
+            if (typeVal.includes('T1QM') || typeVal.includes('T1 QM') || typeVal === 'T1QM' || typeVal === 'T1') dynamicMap[name] = 'T1QM';
+            else if (typeVal.includes('CFA VALIDATION')) dynamicMap[name] = 'CFA VALIDATION';
             else if (typeVal.includes('CFA')) dynamicMap[name] = 'CFA';
             else if (typeVal === 'PSI LV.1' || typeVal.includes('PSI LV.1') || typeVal.includes('PSI LV. 1') || typeVal.includes('PSI LV1')) dynamicMap[name] = 'PSI LV.1';
             else if (typeVal === 'PSI' || typeVal.includes('PSI LV.2') || typeVal.includes('PSI LV. 2') || typeVal.includes('PSI LV2')) dynamicMap[name] = 'PSI LV.2';

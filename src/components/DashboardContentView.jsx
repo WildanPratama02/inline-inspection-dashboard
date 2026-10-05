@@ -4,11 +4,14 @@ import DefectChart from './DefectChart';
 import DefectImages from './DefectImages';
 import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
+import CfaSeverityChart from './CfaSeverityChart';
+import CfaInspectorChart from './CfaInspectorChart';
 import { findKey, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
-  const is3rdParty = currentTab === '3rd Party' || currentTab === 'CFA';
+  const isCfa = currentTab === 'CFA';
+  const is3rdParty = currentTab === '3rd Party' || isCfa;
   const kpis = useMemo(() => {
     if (!data || data.length === 0) {
       return { qtyOrder: 0, qtyDefect: 0, rft: '0.0', defectRate: '0.0', aGrade: 0, bGrade: '-', totalAGrade: 0, criticalDefect: 0, majorDefect: 0, minorDefect: 0 };
@@ -355,13 +358,13 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     <div id={id} className="industrial-border bg-primary p-4 relative w-full rounded-sm flex flex-col gap-3">
 
       {/* ── ON PROGRESS Banner for CFA & T1QM ── */}
-      {['T1QM 1', 'T1QM 2', 'T1QM 3'].includes(currentTab) && (
+      {['T1QM', 'T1QM 1', 'T1QM 2', 'T1QM 3', 'CFA VALIDATION'].includes(currentTab) && (
         <div className="industrial-border bg-amber-950/40 border-amber-500/40 rounded-sm p-3.5 flex items-center justify-between gap-4 text-amber-200">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🚧</span>
             <div>
               <div className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-2">
-                <span>FITUR {currentTab === 'CFA' ? 'AQL CFA' : currentTab} SEDANG DALAM PENGEMBANGAN</span>
+                <span>FITUR {currentTab === 'CFA VALIDATION' ? 'CFA VALIDATION BY T1QM' : currentTab} SEDANG DALAM PENGEMBANGAN</span>
               </div>
               <div className="text-[11px] text-amber-200/70 mt-0.5">
                 Pengolahan dan integrasi data untuk menu ini masih dalam proses (On Progress / Belum Jadi).
@@ -540,7 +543,18 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
           </div>
 
-          {is3rdParty ? (
+          {isCfa ? (
+            <>
+              {/* CFA Report Layout: DefectChart full width */}
+              <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
+                <DefectChart data={defectStats} height={260} />
+              </div>
+              {/* Building Status Chart (by Factory) */}
+              <div className="w-full">
+                <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
+              </div>
+            </>
+          ) : is3rdParty ? (
             <>
               {/* 3rd Party Layout: DefectChart full width */}
               <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
@@ -568,8 +582,15 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         <div className="w-full lg:w-1/2 flex flex-col gap-2 min-w-0">
           {/* KPI Boxes */}
           <KPIBox kpis={kpis} metadata={headerMetadata} is3rdParty={is3rdParty} activeTab={currentTab} />
-          {/* Defect Images */}
-          <DefectImages defects={defectImages} />
+          {/* CFA Report: Severity Breakdown + Inspector Performance instead of Defect Images */}
+          {isCfa ? (
+            <>
+              <CfaSeverityChart data={data} />
+              <CfaInspectorChart data={data} rawData={rawData} />
+            </>
+          ) : (
+            <DefectImages defects={defectImages} />
+          )}
         </div>
 
       </div>

@@ -8,7 +8,16 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
       <div className="flex items-center gap-0">
         <button
           onClick={() => onTabChange('CFA')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'CFA'
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === 'CFA'
+            ? 'bg-primary text-white border-white/30'
+            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
+            }`}
+        >
+          CFA REPORT
+        </button>
+        <button
+          onClick={() => onTabChange('CFA VALIDATION')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'CFA VALIDATION'
             ? 'bg-primary text-white border-white/30'
             : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
             }`}
@@ -44,33 +53,13 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
           AQL 3rd Party
         </button>
         <button
-          onClick={() => onTabChange('T1QM 1')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM 1'
+          onClick={() => onTabChange('T1QM')}
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM'
             ? 'bg-primary text-white border-white/30'
             : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
             }`}
         >
-          T1QM 1
-          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
-        </button>
-        <button
-          onClick={() => onTabChange('T1QM 2')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM 2'
-            ? 'bg-primary text-white border-white/30'
-            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-            }`}
-        >
-          T1QM 2
-          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
-        </button>
-        <button
-          onClick={() => onTabChange('T1QM 3')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'T1QM 3'
-            ? 'bg-primary text-white border-white/30'
-            : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
-            }`}
-        >
-          T1QM 3
+          T1QM
           <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
         </button>
         {viewMode === 'summary' && (
@@ -121,7 +110,7 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
         {/* Title */}
         <div className="flex items-center gap-2 mr-2 shrink-0 pb-1">
           <h1 className="text-base font-bold uppercase tracking-wide whitespace-nowrap">
-            {activeTab === 'CFA' ? 'AQL CFA' : activeTab === '3rd Party' ? 'AQL 3rd Party' : activeTab === 'T1QM 1' ? 'T1QM 1' : activeTab === 'T1QM 2' ? 'T1QM 2' : activeTab === 'T1QM 3' ? 'T1QM 3' : activeTab === 'SUMMARY RFT' ? 'Summary RFT' : activeTab === 'PSI LV.2' ? 'PSI LV.2' : activeTab === 'PSI LV.1' ? 'PSI LV.1' : 'QUALITY INSPECTION PERFORMANCE'}
+            {activeTab === 'CFA' ? 'CFA REPORT' : activeTab === 'CFA VALIDATION' ? 'CFA VALIDATION BY T1QM' : activeTab === '3rd Party' ? 'AQL 3rd Party' : activeTab === 'T1QM' ? 'T1QM' : activeTab === 'SUMMARY RFT' ? 'Summary RFT' : activeTab === 'PSI LV.2' ? 'PSI LV.2' : activeTab === 'PSI LV.1' ? 'PSI LV.1' : 'QUALITY INSPECTION PERFORMANCE'}
           </h1>
 
         </div>
@@ -130,7 +119,7 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
         <div className="flex flex-wrap items-end gap-2 flex-1">
           <div className="flex flex-col">
             <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider ml-1">
-              {activeTab === 'CFA' ? 'INSPECTION DATE' : 'DATE'}
+              {(activeTab === 'CFA' || activeTab === 'CFA VALIDATION') ? 'INSPECTION DATE' : 'DATE'}
             </label>
             <DateRangePicker
               startDate={filters.startDate}

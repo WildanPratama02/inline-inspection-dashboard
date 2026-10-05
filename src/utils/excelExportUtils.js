@@ -34,9 +34,7 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
     { sheetName: 'PSI LV.1', type: 'PSI LV.1', hasStatusPo: false },
     { sheetName: 'PSI LV.2', type: 'PSI LV.2', hasStatusPo: false },
     { sheetName: 'AQL 3rd PARTY', type: '3rd Party', hasStatusPo: true },
-    { sheetName: 'T1QM 1', type: 'T1QM 1', hasStatusPo: true },
-    { sheetName: 'T1QM 2', type: 'T1QM 2', hasStatusPo: true },
-    { sheetName: 'T1QM 3', type: 'T1QM 3', hasStatusPo: true }
+    { sheetName: 'T1QM', type: 'T1QM', hasStatusPo: true }
   ];
 
   // Build SpreadsheetML XML
@@ -328,17 +326,7 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
     <Cell ss:StyleID="Header3rdParty"><Data ss:Type="String">TOTAL DEFECT</Data></Cell>
     <Cell ss:StyleID="Header3rdParty"><Data ss:Type="String">RFT</Data></Cell>
 
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">T1QM 1 NAME</Data></Cell>
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">QTY CHECKING</Data></Cell>
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">TOTAL DEFECT</Data></Cell>
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">RFT</Data></Cell>
-
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">T1QM 2 NAME</Data></Cell>
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">QTY CHECKING</Data></Cell>
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">TOTAL DEFECT</Data></Cell>
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">RFT</Data></Cell>
-
-    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">T1QM 3 NAME</Data></Cell>
+    <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">T1QM NAME</Data></Cell>
     <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">QTY CHECKING</Data></Cell>
     <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">TOTAL DEFECT</Data></Cell>
     <Cell ss:StyleID="HeaderT1QM"><Data ss:Type="String">RFT</Data></Cell>
@@ -376,17 +364,16 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
         'PSI LV.1': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 },
         'PSI LV.2': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 },
         '3rd Party': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 },
-        'T1QM 1': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 },
-        'T1QM 2': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 },
-        'T1QM 3': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 }
+        'T1QM': { names: new Set(), qtyChecking: 0, totalDefect: 0, totalAGrade: 0, hasData: false, sumRft: 0, countRft: 0 }
       };
 
       items.forEach(item => {
         const inspName = String(item[inspectorKey] || '').trim();
         const iType = resolveInspectorType ? resolveInspectorType(inspName, item) : null;
+        const targetType = (iType && (iType.startsWith('T1QM') || iType === 'T1QM')) ? 'T1QM' : iType;
 
-        if (iType && catData[iType]) {
-          const target = catData[iType];
+        if (targetType && catData[targetType]) {
+          const target = catData[targetType];
           target.hasData = true;
           if (inspName && inspName !== '-') target.names.add(inspName);
 
@@ -450,9 +437,7 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
       const psiLv1Fmt = getCatFormatted('PSI LV.1');
       const psiFmt = getCatFormatted('PSI LV.2');
       const party3Fmt = getCatFormatted('3rd Party');
-      const t1qm1Fmt = getCatFormatted('T1QM 1');
-      const t1qm2Fmt = getCatFormatted('T1QM 2');
-      const t1qm3Fmt = getCatFormatted('T1QM 3');
+      const t1qmFmt = getCatFormatted('T1QM');
 
       xml += `   <Row ss:Height="20">
     <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(inspDateVal)}</Data></Cell>
@@ -482,20 +467,10 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
     ${party3Fmt.totalDefectCell}
     ${party3Fmt.rftCell}
 
-    <Cell ss:StyleID="CellT1QMLeft"><Data ss:Type="String">${escapeXml(t1qm1Fmt.name)}</Data></Cell>
-    ${t1qm1Fmt.qtyCheckingCell}
-    ${t1qm1Fmt.totalDefectCell}
-    ${t1qm1Fmt.rftCell}
-
-    <Cell ss:StyleID="CellT1QMLeft"><Data ss:Type="String">${escapeXml(t1qm2Fmt.name)}</Data></Cell>
-    ${t1qm2Fmt.qtyCheckingCell}
-    ${t1qm2Fmt.totalDefectCell}
-    ${t1qm2Fmt.rftCell}
-
-    <Cell ss:StyleID="CellT1QMLeft"><Data ss:Type="String">${escapeXml(t1qm3Fmt.name)}</Data></Cell>
-    ${t1qm3Fmt.qtyCheckingCell}
-    ${t1qm3Fmt.totalDefectCell}
-    ${t1qm3Fmt.rftCell}
+    <Cell ss:StyleID="CellT1QMLeft"><Data ss:Type="String">${escapeXml(t1qmFmt.name)}</Data></Cell>
+    ${t1qmFmt.qtyCheckingCell}
+    ${t1qmFmt.totalDefectCell}
+    ${t1qmFmt.rftCell}
    </Row>
 `;
     });
