@@ -162,7 +162,7 @@ const CfaSeverityChart = ({ data = [] }) => {
       </div>
 
       {/* Chart + Legend side by side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 260 }}>
         {/* Donut */}
         <div style={{ width: 160, height: 160, flexShrink: 0 }}>
           <ResponsiveContainer width="100%" height="100%">

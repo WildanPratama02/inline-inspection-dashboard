@@ -531,11 +531,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
             <>
               {/* CFA Report Layout: DefectChart full width */}
               <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
-                <DefectChart data={defectStats} height={260} />
-              </div>
-              {/* Building Status Chart (by Factory) */}
-              <div className="w-full">
-                <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
+                <DefectChart data={defectStats} height={278} />
               </div>
             </>
           ) : is3rdParty ? (
@@ -545,7 +541,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
                 <DefectChart data={defectStats} height={260} />
               </div>
               {/* Building Status Chart */}
-              <div className="w-full">
+              <div className="w-full flex-1 flex flex-col min-h-0">
                 <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
               </div>
             </>
@@ -555,7 +551,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2">
                 <DefectChart data={defectStats} />
               </div>
-              <div className="industrial-border bg-white/5 p-3">
+              <div className="industrial-border bg-white/5 p-3 flex-1 flex flex-col min-h-0">
                 <StatsChart data={data} rawData={rawData} filters={filters} />
               </div>
             </>
@@ -566,18 +562,27 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         <div className="w-full lg:w-1/2 flex flex-col gap-2 min-w-0">
           {/* KPI Boxes */}
           <KPIBox kpis={kpis} metadata={headerMetadata} is3rdParty={is3rdParty} activeTab={currentTab} />
-          {/* CFA Report: Severity Breakdown + Inspector Performance instead of Defect Images */}
+          {/* CFA Report: Severity Breakdown (Inspector moved to bottom row) */}
           {isCfa ? (
-            <>
-              <CfaSeverityChart data={data} />
-              <CfaInspectorChart data={data} rawData={rawData} />
-            </>
+            <CfaSeverityChart data={data} />
           ) : (
             <DefectImages defects={defectImages} />
           )}
         </div>
 
       </div>
+
+      {/* ── CFA Bottom Row: BuildingStatus + InspectorPerformance — equal height ── */}
+      {isCfa && (
+        <div className="flex flex-col lg:flex-row gap-2 w-full">
+          <div className="w-full lg:w-1/2 min-w-0 flex flex-col">
+            <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
+          </div>
+          <div className="w-full lg:w-1/2 min-w-0 flex flex-col">
+            <CfaInspectorChart data={data} rawData={rawData} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
