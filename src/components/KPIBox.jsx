@@ -129,7 +129,63 @@ const KPIBox = ({ kpis, metadata = {}, is3rdParty = false, activeTab }) => {
     );
   }
 
-  // ── Default: CFA / PSI / T1QM — layout lama ──
+  // ── CFA Layout — 6 KPI boxes with CFA-specific data ──
+  if (activeTab === 'CFA') {
+    const cfaQtyInspection = kpis.sampleLot || 0;
+    const cfaQtyDefect = kpis.sheetDefect || 0;
+    const cfaQtyPass = cfaQtyInspection - cfaQtyDefect;
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        {/* Row 1 */}
+        {/* 1. QTY INSPECTION — warna biru */}
+        <div className="kpi-qty-inspection p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px]">
+          <span className="text-[12px] uppercase font-bold text-white/95 self-start">QTY INSPECTION</span>
+          <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
+            {formatNumberIndo(cfaQtyInspection)}
+          </span>
+        </div>
+        {/* 2. QTY DEFECT — warna merah */}
+        <div className="kpi-qty-defect p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px]">
+          <span className="text-[12px] uppercase font-bold text-white/95 self-start">QTY DEFECT</span>
+          <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
+            {formatNumberIndo(cfaQtyDefect)}
+          </span>
+        </div>
+        {/* 3. QTY PASS — warna hijau */}
+        <div className="kpi-rft p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px]">
+          <span className="text-[12px] uppercase font-bold text-white/95 self-start">QTY PASS</span>
+          <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
+            {formatNumberIndo(cfaQtyPass)}
+          </span>
+        </div>
+
+        {/* Row 2 */}
+        {/* 4. TOTAL MINOR — warna kuning */}
+        <div className="kpi-yellow p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px]">
+          <span className="text-[12px] uppercase font-bold text-white/95 self-start">TOTAL MINOR</span>
+          <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
+            {formatNumberIndo(kpis.sheetMinor)}
+          </span>
+        </div>
+        {/* 5. TOTAL MAJOR — warna orange */}
+        <div className="kpi-b-grade p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px]">
+          <span className="text-[12px] uppercase font-bold text-white/95 self-start">TOTAL MAJOR</span>
+          <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
+            {formatNumberIndo(kpis.sheetMajor)}
+          </span>
+        </div>
+        {/* 6. TOTAL CRITICAL — warna merah */}
+        <div className="kpi-critical-red p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px]">
+          <span className="text-[12px] uppercase font-bold text-white/95 self-start">TOTAL CRITICAL</span>
+          <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
+            {formatNumberIndo(kpis.sheetCritical)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Default: PSI / T1QM — layout lama ──
   return (
     <div className="grid grid-cols-3 gap-2">
         {/* Row 1 */}
@@ -167,7 +223,7 @@ const KPIBox = ({ kpis, metadata = {}, is3rdParty = false, activeTab }) => {
         </div>
         <div className={`p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[80px] ${is3rdParty ? 'kpi-pass-rate-blue' : 'kpi-defect-rate-red'}`}>
           <span className="text-[12px] uppercase font-bold text-white/95 self-start">
-            {activeTab === 'CFA' ? 'PASS RATE CFA' : activeTab === 'T1QM' ? 'PASS RATE T1QM' : is3rdParty ? 'PASS RATE BUILDING' : 'DEFECT RATE'}
+            {activeTab === 'T1QM' ? 'PASS RATE T1QM' : is3rdParty ? 'PASS RATE BUILDING' : 'DEFECT RATE'}
           </span>
           <span className="text-[30px] font-bold text-center self-center my-auto text-white tracking-wide">
             {formatPercentIndo(kpis.defectRate)}

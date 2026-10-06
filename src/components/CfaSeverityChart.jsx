@@ -126,7 +126,7 @@ const CfaSeverityChart = ({ data = [] }) => {
         width: '100%',
       }}>
         <h3 style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.9)', margin: 0, marginBottom: 8 }}>
-          🔍 DEFECT SEVERITY BREAKDOWN
+          🔍 DEFECT CLASIFICATION BREAKDOWN
         </h3>
         <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 11, padding: '20px 0' }}>
           No defect data available
@@ -152,7 +152,7 @@ const CfaSeverityChart = ({ data = [] }) => {
         paddingBottom: 8, flexWrap: 'wrap', gap: 6,
       }}>
         <h3 style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.9)', margin: 0 }}>
-          🔍 DEFECT SEVERITY BREAKDOWN
+          🔍 DEFECT CLASIFICATION BREAKDOWN
         </h3>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 700, background: 'rgba(255,255,255,0.10)', borderRadius: 4, padding: '2px 8px' }}>

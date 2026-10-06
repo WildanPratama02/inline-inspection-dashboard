@@ -144,13 +144,14 @@ const Dashboard = () => {
   const options = useMemo(() => {
     if (!data.raw || data.raw.length === 0) return {};
 
-    const firstItem = data.raw[0] || {};
+    // Get a representative item for the active tab to correctly identify filter keys
+    const firstItem = data.raw.find(item => resolveInspectorType(item.inspector, item) === activeTab) || data.raw[0] || {};
     const dateKey = findKey(firstItem, 'date');
-
+    
     // Pre-find keys for all categorical filters
     const filterKeys = {};
     ['factory', 'cell', 'model', 'po', 'inspector', 'article'].forEach(k => {
-      filterKeys[k] = findKey(firstItem, k);
+      filterKeys[k] = findKey(firstItem, k, 'building');
     });
 
     // Also pre-find defect keys for dynamic defect filter
@@ -285,7 +286,7 @@ const Dashboard = () => {
   const filteredData = useMemo(() => {
     if (!data.raw || data.raw.length === 0) return [];
 
-    const firstItem = data.raw[0] || {};
+    const firstItem = data.raw.find(item => resolveInspectorType(item.inspector, item) === activeTab) || data.raw[0] || {};
     const dateKey = findKey(firstItem, 'date');
 
     // Pre-find keys for each active filter
@@ -395,9 +396,9 @@ const Dashboard = () => {
       const nextFilters = { ...prev, [key]: value };
 
       if (!data.raw || data.raw.length === 0) return nextFilters;
-      const firstItem = data.raw[0] || {};
+      const firstItem = data.raw.find(item => resolveInspectorType(item.inspector, item) === activeTab) || data.raw[0] || {};
       const cellKey = findKey(firstItem, 'cell');
-      const factoryKey = findKey(firstItem, 'factory');
+      const factoryKey = findKey(firstItem, 'factory', 'building');
       const modelKey = findKey(firstItem, 'model');
       const poKey = findKey(firstItem, 'po');
       const articleKey = findKey(firstItem, 'article');

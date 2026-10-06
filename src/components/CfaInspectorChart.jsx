@@ -72,7 +72,6 @@ const CustomLegend = () => (
     {[
       { color: '#22c55e', label: 'PASS' },
       { color: '#ef4444', label: 'FAIL' },
-      { color: '#3b82f6', label: 'TOTAL' },
       { color: '#a855f7', label: 'PASS RATE', line: true },
     ].map(({ color, label, line }) => (
       <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '0.06em' }}>
@@ -105,7 +104,7 @@ const CfaInspectorChart = ({ data = [], rawData = [] }) => {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const firstItem = rawData[0] || {};
+    const firstItem = data[0] || rawData[0] || {};
     const inspectorKey = findKey(firstItem, 'inspector', 'inspector_name') || 'inspector';
     const statusKey = findKey(firstItem, 'status_po', 'status po', 'status_inspection', 'status', 'result');
 
@@ -162,6 +161,9 @@ const CfaInspectorChart = ({ data = [], rawData = [] }) => {
         borderRadius: 6,
         padding: '14px 12px 10px',
         width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Header */}
@@ -194,76 +196,76 @@ const CfaInspectorChart = ({ data = [], rawData = [] }) => {
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        <ComposedChart
-          data={chartData}
-          margin={{ top: 20, right: 20, left: 0, bottom: chartData.length > 5 ? 40 : 10 }}
-          barCategoryGap="25%"
-          barGap={3}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
-
-          <YAxis
-            yAxisId="count"
-            orientation="left"
-            tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: 600 }}
-            axisLine={false}
-            tickLine={false}
-            width={30}
-            allowDecimals={false}
-          />
-
-          <YAxis
-            yAxisId="rate"
-            orientation="right"
-            domain={[0, 100]}
-            tickFormatter={(v) => `${v}%`}
-            tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: 600 }}
-            axisLine={false}
-            tickLine={false}
-            width={38}
-          />
-
-          <XAxis
-            dataKey="name"
-            tick={{ fill: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: 700 }}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-            angle={chartData.length > 4 ? -35 : 0}
-            textAnchor={chartData.length > 4 ? 'end' : 'middle'}
-            height={chartData.length > 4 ? 56 : 28}
-          />
-
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-
-          <Bar yAxisId="count" dataKey="pass" name="PASS" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={40}>
-            <LabelList dataKey="pass" position="top" style={{ fill: '#86efac', fontSize: 9, fontWeight: 700 }} />
-          </Bar>
-
-          <Bar yAxisId="count" dataKey="fail" name="FAIL" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40}>
-            <LabelList dataKey="fail" position="top" style={{ fill: '#fca5a5', fontSize: 9, fontWeight: 700 }} />
-          </Bar>
-
-          <Bar yAxisId="count" dataKey="total" name="TOTAL" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40}>
-            <LabelList dataKey="total" position="top" style={{ fill: '#93c5fd', fontSize: 9, fontWeight: 700 }} />
-          </Bar>
-
-          <Line
-            yAxisId="rate"
-            type="monotone"
-            dataKey="passRate"
-            name="PASS RATE"
-            stroke="#a855f7"
-            strokeWidth={2.5}
-            dot={{ fill: '#a855f7', r: 5, strokeWidth: 2, stroke: 'rgba(168,85,247,0.3)' }}
-            activeDot={{ r: 7, fill: '#c084fc', stroke: 'rgba(168,85,247,0.4)', strokeWidth: 2 }}
-            strokeDasharray="5 3"
+      <div style={{ flex: 1, minHeight: chartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart
+            data={chartData}
+            margin={{ top: 20, right: 20, left: 0, bottom: chartData.length > 5 ? 40 : 10 }}
+            barCategoryGap="25%"
+            barGap={3}
           >
-            <LabelList content={<PassRateLabel />} />
-          </Line>
-        </ComposedChart>
-      </ResponsiveContainer>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+
+            <YAxis
+              yAxisId="count"
+              orientation="left"
+              tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: 600 }}
+              axisLine={false}
+              tickLine={false}
+              width={30}
+              allowDecimals={false}
+            />
+
+            <YAxis
+              yAxisId="rate"
+              orientation="right"
+              domain={[0, 100]}
+              tickFormatter={(v) => `${v}%`}
+              tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: 600 }}
+              axisLine={false}
+              tickLine={false}
+              width={38}
+            />
+
+            <XAxis
+              dataKey="name"
+              tick={{ fill: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: 700 }}
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+              angle={chartData.length > 4 ? -35 : 0}
+              textAnchor={chartData.length > 4 ? 'end' : 'middle'}
+              height={chartData.length > 4 ? 56 : 28}
+            />
+
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+
+            <Bar yAxisId="count" dataKey="pass" name="PASS" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={40}>
+              <LabelList dataKey="pass" position="top" style={{ fill: '#86efac', fontSize: 9, fontWeight: 700 }} />
+            </Bar>
+
+            <Bar yAxisId="count" dataKey="fail" name="FAIL" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40}>
+              <LabelList dataKey="fail" position="top" style={{ fill: '#fca5a5', fontSize: 9, fontWeight: 700 }} />
+            </Bar>
+
+
+
+            <Line
+              yAxisId="rate"
+              type="monotone"
+              dataKey="passRate"
+              name="PASS RATE"
+              stroke="#a855f7"
+              strokeWidth={2.5}
+              dot={{ fill: '#a855f7', r: 5, strokeWidth: 2, stroke: 'rgba(168,85,247,0.3)' }}
+              activeDot={{ r: 7, fill: '#c084fc', stroke: 'rgba(168,85,247,0.4)', strokeWidth: 2 }}
+              strokeDasharray="5 3"
+            >
+              <LabelList content={<PassRateLabel />} />
+            </Line>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
 
       <CustomLegend />
     </div>

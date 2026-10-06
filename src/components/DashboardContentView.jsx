@@ -30,6 +30,14 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     // Pre-computed RFT & defect rate columns from sheet
     const rftKey = findKey(firstItem, 'rft');
     const statusKey = findKey(firstItem, 'status_po', 'status po', 'status_inspection', 'status inspection', 'status', 'result', 'pass_fail');
+    // CFA-specific pre-computed columns from sheet
+    // Use data[0] (tab-filtered) instead of rawData[0] because CFA fields only exist on CFA items
+    const cfaFirstItem = data[0] || {};
+    const sampleLotKey = findKey(cfaFirstItem, 'sample_lot', 'sample lot');
+    const totalMinorKey = findKey(cfaFirstItem, 'total_minor', 'total minor');
+    const totalMajorKey = findKey(cfaFirstItem, 'total_major', 'total major');
+    const totalCriticalCfaKey = findKey(cfaFirstItem, 'total_critical', 'total critical');
+    const totalDefectCfaKey = findKey(cfaFirstItem, 'total_defect', 'total defect');
     // 3rd Party specific columns — derived from classification slots
     const totalAGradeKey = findKey(firstItem, 'total_a_grade', 'total a grade', 'a_grade', 'a grade', 'agrade');
     // Defect slot keys — qty + classification (up to 25 slots)
@@ -55,6 +63,12 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     let totalCritical = 0;
     let totalMajor = 0;
     let totalMinor = 0;
+    // CFA-specific aggregation from pre-computed sheet columns
+    let totalSampleLot = 0;
+    let totalSheetMinor = 0;
+    let totalSheetMajor = 0;
+    let totalSheetCritical = 0;
+    let totalSheetDefect = 0;
 
     const isDefectFiltered = filters && filters.defectName && filters.defectName.length > 0;
 
@@ -91,6 +105,12 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       totalInspection += rowInspection;
       totalAGrade += parseNumber(item[aGradeKey]);
       totalAGradeFull += parseNumber(item[totalAGradeKey]);
+      // CFA pre-computed columns
+      if (sampleLotKey) totalSampleLot += parseNumber(item[sampleLotKey]);
+      if (totalMinorKey) totalSheetMinor += parseNumber(item[totalMinorKey]);
+      if (totalMajorKey) totalSheetMajor += parseNumber(item[totalMajorKey]);
+      if (totalCriticalCfaKey) totalSheetCritical += parseNumber(item[totalCriticalCfaKey]);
+      if (totalDefectCfaKey) totalSheetDefect += parseNumber(item[totalDefectCfaKey]);
 
       if (isDefectFiltered) {
         totalDefects += thisRowFilteredDefects;
@@ -205,7 +225,13 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       totalBGrade: totalBGrade,
       criticalDefect: totalCritical,
       majorDefect: totalMajor,
-      minorDefect: totalMinor
+      minorDefect: totalMinor,
+      // CFA-specific fields from pre-computed sheet columns
+      sampleLot: totalSampleLot,
+      sheetMinor: totalSheetMinor,
+      sheetMajor: totalSheetMajor,
+      sheetCritical: totalSheetCritical,
+      sheetDefect: totalSheetDefect
     };
   }, [data, rawData, is3rdParty, currentTab]);
 
@@ -214,7 +240,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
     const counts = {};
     const imageSelections = {};
-    const firstItem = rawData[0] || {};
+    const firstItem = data[0] || rawData[0] || {};
 
     const nameKeys = [];
     const qtyKeys = [];
@@ -384,17 +410,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
             {currentTab === 'CFA' ? 'BUILDING' : 'FACTORY'}
           </span>
           <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.factory}</span>
-          {/* STATUS PO badge — hanya tampil jika single PO filter (PASS atau FAIL) */}
-          {headerMetadata.statusPoHeader && headerMetadata.statusPoHeader !== 'MIXED' && (
-            <div className={`flex flex-col items-center justify-center px-3 py-1.5 rounded-sm industrial-border min-w-[72px] shrink-0 ${headerMetadata.statusPoHeader === 'PASS'
-              ? 'bg-emerald-600/80 border-emerald-400/40'
-              : 'bg-rose-700/80 border-rose-400/40'
-              }`}>
-              <span className="text-[9px] uppercase font-bold text-white/70 tracking-widest leading-none mb-0.5 whitespace-nowrap">STATUS PO</span>
-              <span className={`text-[13px] font-black tracking-wide leading-none ${headerMetadata.statusPoHeader === 'PASS' ? 'text-emerald-200' : 'text-rose-200'
-                }`}>{headerMetadata.statusPoHeader}</span>
-            </div>
-          )}
+
           {/* Pass Rate badge */}
           {(() => {
             const displayPassRate = currentTab === 'CFA' ? kpis.rft : headerMetadata.passRate;
@@ -427,23 +443,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         <div className="industrial-border bg-white/5 rounded-sm px-3 py-2 flex items-center gap-3 mb-3 overflow-hidden">
           <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">BUILDING</span>
           <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.factory}</span>
-          {/* Status PO badge */}
-          {headerMetadata.statusPo && (
-            <div className={`flex flex-col items-center justify-center px-3 py-1 rounded-sm industrial-border min-w-[72px] shrink-0 ${headerMetadata.statusPo === 'PASS'
-              ? 'bg-emerald-600/80 border-emerald-400/40'
-              : headerMetadata.statusPo === 'FAIL'
-                ? 'bg-rose-700/80 border-rose-400/40'
-                : 'bg-amber-600/80 border-amber-400/40'
-              }`}>
-              <span className="text-[9px] uppercase font-bold text-white/70 tracking-widest leading-none mb-0.5">STATUS PO</span>
-              <span className={`text-[13px] font-black tracking-wide leading-none ${headerMetadata.statusPo === 'PASS'
-                ? 'text-emerald-200'
-                : headerMetadata.statusPo === 'FAIL'
-                  ? 'text-rose-200'
-                  : 'text-amber-200'
-                }`}>{headerMetadata.statusPo}</span>
-            </div>
-          )}
+
         </div>
       )}
 
@@ -452,23 +452,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         <div className="industrial-border bg-white/5 rounded-sm px-3 py-2 flex items-center gap-3 mb-3 overflow-hidden">
           <span className="text-[11px] uppercase font-bold text-white/50 tracking-wider whitespace-nowrap">INSPECTOR</span>
           <span style={{ writingMode: 'horizontal-tb', textOrientation: 'mixed', whiteSpace: 'normal', wordBreak: 'break-word' }} className="text-[13px] font-bold text-white tracking-wide leading-snug flex-1">{headerMetadata.inspector}</span>
-          {/* Status PO badge */}
-          {headerMetadata.statusPo && (
-            <div className={`flex flex-col items-center justify-center px-3 py-1 rounded-sm industrial-border min-w-[72px] shrink-0 ${headerMetadata.statusPo === 'PASS'
-              ? 'bg-emerald-600/80 border-emerald-400/40'
-              : headerMetadata.statusPo === 'FAIL'
-                ? 'bg-rose-700/80 border-rose-400/40'
-                : 'bg-amber-600/80 border-amber-400/40'
-              }`}>
-              <span className="text-[9px] uppercase font-bold text-white/70 tracking-widest leading-none mb-0.5">STATUS PO</span>
-              <span className={`text-[13px] font-black tracking-wide leading-none ${headerMetadata.statusPo === 'PASS'
-                ? 'text-emerald-200'
-                : headerMetadata.statusPo === 'FAIL'
-                  ? 'text-rose-200'
-                  : 'text-amber-200'
-                }`}>{headerMetadata.statusPo}</span>
-            </div>
-          )}
+
         </div>
       )}
 
