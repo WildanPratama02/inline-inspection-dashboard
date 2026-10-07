@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, LabelList, Cell
@@ -45,7 +44,7 @@ const CustomXAxisTick = (props) => {
   );
 };
 
-const StatsChart = ({ data = [], rawData = [] }) => {
+const StatsChart = ({ data = [], rawData = [], activeTab }) => {
   if (!data || data.length === 0) {
     return (
       <div className="w-full h-[200px] flex items-center justify-center text-white/40 text-xs">
@@ -88,8 +87,11 @@ const StatsChart = ({ data = [], rawData = [] }) => {
     if (rftKey) {
       const val = parsePercent(item[rftKey]);
       if (val !== null) {
-        groups[isoStr].rftSum += val;
-        groups[isoStr].rftCount++;
+        const rftWeight = activeTab === 'T1QM' ? parseNumber(item[qtyInsKey]) : 1;
+        if (rftWeight > 0) {
+          groups[isoStr].rftSum += val * rftWeight;
+          groups[isoStr].rftCount += rftWeight;
+        }
       }
     }
   });
@@ -137,7 +139,7 @@ const StatsChart = ({ data = [], rawData = [] }) => {
               dataKey="name"
               tick={<CustomXAxisTick />}
               height={40}
-              interval={0}
+              interval={activeTab === 'T1QM' ? Math.max(0, Math.ceil(chartData.length / 5) - 1) : 0}
             />
             <YAxis
               domain={[0, 110]}

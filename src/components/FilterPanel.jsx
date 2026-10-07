@@ -5,7 +5,7 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
   return (
     <div className="flex flex-col gap-0">
       {/* Row 0: Menu Tabs */}
-      <div className="flex items-center gap-0">
+      <div className="flex flex-wrap items-center gap-0">
         <button
           onClick={() => onTabChange('CFA')}
           className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === 'CFA'
@@ -60,7 +60,6 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
             }`}
         >
           T1QM
-          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
         </button>
         {viewMode === 'summary' && (
           <button
@@ -74,8 +73,8 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
           </button>
         )}
         {/* Spacer + action buttons pushed to right */}
-        <div className="flex-1" />
-        <div className="flex items-center gap-2 pb-1">
+        <div className="hidden lg:block flex-1" />
+        <div className="ml-auto flex flex-wrap items-center gap-2 pb-1">
           <button
             onClick={onSummary}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-5 rounded transition-all shadow-lg uppercase text-[10px]"
@@ -133,12 +132,22 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
             selected={filters.factory}
             onChange={(val) => onFilterChange('factory', val)}
           />
-          <MultiSelect
-            label="CELL"
-            options={options.cell || []}
-            selected={filters.cell}
-            onChange={(val) => onFilterChange('cell', val)}
-          />
+          {activeTab === 'T1QM' && (
+            <MultiSelect
+              label="TYPE INSPECTION"
+              options={options.typeInspection || []}
+              selected={filters.typeInspection || []}
+              onChange={(val) => onFilterChange('typeInspection', val)}
+            />
+          )}
+          {activeTab !== 'T1QM' && (
+            <MultiSelect
+              label="CELL"
+              options={options.cell || []}
+              selected={filters.cell}
+              onChange={(val) => onFilterChange('cell', val)}
+            />
+          )}
           <MultiSelect
             label="MODEL"
             options={options.model || []}

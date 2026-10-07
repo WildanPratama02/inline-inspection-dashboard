@@ -20,7 +20,12 @@ import {
   parseNumber,
   toLocalISODate,
   formatDateStr,
-  getInspectorType
+  getInspectorType,
+  getT1qmInspectionTypes,
+  isT1qmDateAnomaly,
+  isT1qmType,
+  matchesT1qmInspectionType,
+  normalizeDefectName
 } from '../utils/dataUtils';
 import { exportToPDF } from '../utils/exportPDF';
 
@@ -45,7 +50,8 @@ const Dashboard = () => {
     po: [],
     inspector: [],
     inspectorType: [],
-    defectName: []
+    defectName: [],
+    typeInspection: []
   });
 
   const rawDataRef = useRef([]);
@@ -57,7 +63,8 @@ const Dashboard = () => {
       const typeVal = item.type_inspection || item.inspection_type || item.type_inspector || '';
       if (typeVal && typeVal.trim() !== '' && typeVal.trim() !== '-') {
         const v = typeVal.trim().toUpperCase();
-        if (v.includes('T1QM') || v.includes('T1 QM') || v === 'T1QM' || v === 'T1') return 'T1QM';
+        if (isT1qmType(v)) return 'T1QM';
+        if (v.replace(/\s+/g, '').startsWith('T1QM')) return null;
         if (v.includes('CFA VALIDATION')) return 'CFA VALIDATION';
         if (v.includes('CFA')) return 'CFA';
         if (v === 'PSI LV.1' || v.includes('PSI LV.1') || v.includes('PSI LV. 1') || v.includes('PSI LV1')) return 'PSI LV.1';
@@ -124,7 +131,7 @@ const Dashboard = () => {
           const name = (item.inspector || '').trim().toUpperCase();
           const typeVal = (item.type_inspection || item.inspection_type || '').trim().toUpperCase();
           if (name && typeVal && typeVal !== '' && typeVal !== '-' && !dynamicMap[name]) {
-            if (typeVal.includes('T1QM') || typeVal.includes('T1 QM') || typeVal === 'T1QM' || typeVal === 'T1') dynamicMap[name] = 'T1QM';
+            if (isT1qmType(typeVal)) dynamicMap[name] = 'T1QM';
             else if (typeVal.includes('CFA VALIDATION')) dynamicMap[name] = 'CFA VALIDATION';
             else if (typeVal.includes('CFA')) dynamicMap[name] = 'CFA';
             else if (typeVal === 'PSI LV.1' || typeVal.includes('PSI LV.1') || typeVal.includes('PSI LV. 1') || typeVal.includes('PSI LV1')) dynamicMap[name] = 'PSI LV.1';
@@ -162,6 +169,7 @@ const Dashboard = () => {
       defectQtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
     }
     const inspectorKey = filterKeys['inspector'];
+  const typeInspectionKey = findKey(firstItem, 'type_inspection', 'type inspection');
 
     const checkDateInRange = (item) => {
       if (!dateKey) return true;
@@ -201,6 +209,8 @@ const Dashboard = () => {
         const inspNameOpt = inspectorKey ? item[inspectorKey] : null;
         const iTypeOpt = resolveInspectorType(inspNameOpt, item);
         if (activeTab !== 'SUMMARY RFT' && iTypeOpt !== activeTab) return;
+        if (activeTab === 'T1QM' && isT1qmDateAnomaly(item[dateKey])) return;
+        if (activeTab === 'T1QM' && typeInspectionKey && !matchesT1qmInspectionType(item[typeInspectionKey], filters.typeInspection)) return;
 
         // Also check manual inspectorType filter if set
         if (filters.inspectorType && filters.inspectorType.length > 0) {
@@ -237,6 +247,7 @@ const Dashboard = () => {
         const inspNameOpt = inspectorKey ? item[inspectorKey] : null;
         const iTypeOpt = resolveInspectorType(inspNameOpt, item);
         if (activeTab !== 'SUMMARY RFT' && iTypeOpt !== activeTab) return;
+        if (activeTab === 'T1QM' && isT1qmDateAnomaly(item[dateKey])) return;
 
         if (filters.inspectorType && filters.inspectorType.length > 0) {
           if (!filters.inspectorType.includes(iTypeOpt)) return;
@@ -262,7 +273,7 @@ const Dashboard = () => {
               const name = item[nKey];
               const qty = parseNumber(item[qKey]);
               if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
-                optSet.add(name.trim());
+                optSet.add(activeTab === 'T1QM' ? normalizeDefectName(name) : name.trim());
               }
             }
           }
@@ -278,7 +289,8 @@ const Dashboard = () => {
       po: getOptionsForField('po'),
       inspector: getOptionsForField('inspector'),
       article: getOptionsForField('article'),
-      defectName: getOptionsForDefectName()
+      defectName: getOptionsForDefectName(),
+      typeInspection: activeTab === 'T1QM' ? getT1qmInspectionTypes(data.raw) : []
     };
   }, [data.raw, filters, activeTab, inspectorTypeMap]);
 
@@ -348,6 +360,7 @@ const Dashboard = () => {
         const filterValue = filters[fKey];
         if (Array.isArray(filterValue) && filterValue.length > 0) {
           const itemKey = activeFilterKeys[fKey];
+          if (fKey === 'typeInspection') return matchesT1qmInspectionType(item[itemKey], filterValue);
           return itemKey && filterValue.includes(String(item[itemKey]));
         }
         return true;
@@ -379,9 +392,11 @@ const Dashboard = () => {
     if (activeTab === 'SUMMARY RFT') return filteredData;
     const firstItem = data.raw[0] || {};
     const inspectorKey = findKey(firstItem, 'inspector');
+    const dateKey = findKey(firstItem, 'date');
     return filteredData.filter(item => {
       const inspName = inspectorKey ? item[inspectorKey] : null;
-      return resolveInspectorType(inspName, item) === activeTab;
+      if (resolveInspectorType(inspName, item) !== activeTab) return false;
+      return activeTab !== 'T1QM' || !isT1qmDateAnomaly(item[dateKey]);
     });
   }, [filteredData, activeTab, data.raw, inspectorTypeMap]);
 
@@ -412,6 +427,16 @@ const Dashboard = () => {
         nextFilters.po = [];
         nextFilters.article = [];
         nextFilters.inspector = [];
+        nextFilters.defectName = [];
+      }
+
+      if (key === 'typeInspection') {
+        nextFilters.factory = [];
+        nextFilters.cell = [];
+        nextFilters.model = [];
+        nextFilters.po = [];
+        nextFilters.inspector = [];
+        nextFilters.article = [];
         nextFilters.defectName = [];
       }
 
@@ -486,6 +511,7 @@ const Dashboard = () => {
       po: [],
       inspector: [],
       article: [],
+      typeInspection: [],
       defectName: [],
     }));
   };
@@ -495,7 +521,7 @@ const Dashboard = () => {
 
     // Find default date to reset back to initial state
     let defaultDate = 'ALL';
-    if (data.raw && data.raw.length > 0) {
+    if (newTab !== 'T1QM' && data.raw && data.raw.length > 0) {
       const firstItem = data.raw[0];
       const dateKey = Object.keys(firstItem).find(k => k.toLowerCase().includes('date'));
       if (dateKey) {
@@ -527,6 +553,7 @@ const Dashboard = () => {
       po: [],
       inspector: [],
       inspectorType: [],
+      typeInspection: [],
       defectName: []
     });
   };
