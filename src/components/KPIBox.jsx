@@ -131,8 +131,8 @@ const KPIBox = ({ kpis, is3rdParty = false, activeTab }) => {
     const metrics = [
       { label: 'QTY INSPECTION', value: formatNumberIndo(kpis.qtyInspection), className: 'kpi-qty-inspection' },
       { label: 'TOTAL DEFECT', value: formatNumberIndo(kpis.qtyDefect), className: 'kpi-qty-defect' },
-      { label: 'PASS RATE', value: formatPercentIndo(kpis.passRate), className: 'kpi-rft' },
-      { label: 'RFT', value: formatPercentIndo(kpis.rft), className: 'kpi-pass-rate-blue' },
+      { label: 'TOTAL PASS', value: formatNumberIndo(kpis.totalAGrade), className: 'kpi-rft' },
+      { label: 'PASS RATE', value: formatPercentIndo(kpis.rft), className: 'kpi-pass-rate-blue' },
       { label: 'MINOR', value: formatNumberIndo(kpis.minorDefect), className: 'kpi-yellow' },
       { label: 'MAJOR', value: formatNumberIndo(kpis.majorDefect), className: 'kpi-b-grade' },
       { label: 'CRITICAL', value: formatNumberIndo(kpis.criticalDefect), className: 'kpi-critical-red' },
