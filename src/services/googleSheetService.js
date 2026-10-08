@@ -3,8 +3,9 @@ import Papa from 'papaparse';
 
 const RAW_DATA_URL = 'https://docs.google.com/spreadsheets/d/1a-uVy2HfZlitzW1kJ-DGoVisnKbIVKeFZRahH4QwL6I/export?format=csv&gid=1063163792';
 const SUMMARY_DATA_URL = 'https://docs.google.com/spreadsheets/d/1a-uVy2HfZlitzW1kJ-DGoVisnKbIVKeFZRahH4QwL6I/export?format=csv&gid=445107403';
-// CFA uses the MASTER DATA AQL INSPECTION sheet — fetch by sheet name via GViz CSV endpoint
-const CFA_DATA_URL = 'https://docs.google.com/spreadsheets/d/1kr0Ae1b5m2cTTY_gKQ6_fIfDkFLoqiWr7RZssGxWF9s/gviz/tq?tqx=out:csv&sheet=MASTER%20DATA%20AQL%20INSPECTION';
+// CFA uses the MASTER DATA AQL INSPECTION sheet — fetch by gid, not by sheet name:
+// the GViz sheet-name lookup resolved to a different 24-row tab once a same-named tab appeared
+const CFA_DATA_URL = 'https://docs.google.com/spreadsheets/d/1kr0Ae1b5m2cTTY_gKQ6_fIfDkFLoqiWr7RZssGxWF9s/gviz/tq?tqx=out:csv&gid=1383031495';
 
 export const fetchData = async () => {
   try {
@@ -73,11 +74,13 @@ export const fetchData = async () => {
             crd: row['destination'] || '', // map destination to crd for UI consistency
             finish_production: row['finish_production'] || '',
             historycal_po: row['historycal_po'] || '',
+            destination_category: (row['destination_category'] || row['destination_cat'] || '').trim().toUpperCase(),
             qty_order: 0, // Not available in CFA sheet
             qty_inspection: parseNum(row['qty_inspection']),
             sample_lot: parseNum(row['sample_lot']),
             type_inspection: 'CFA',
             inspector: row['inspector_name'] || '-',
+            cfa_name: row['inspector_name'] || '-',
           };
 
           // Map defect slots 1-5

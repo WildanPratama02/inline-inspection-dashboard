@@ -17,13 +17,12 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
         </button>
         <button
           onClick={() => onTabChange('CFA VALIDATION')}
-          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all relative border border-b-0 ${activeTab === 'CFA VALIDATION'
+          className={`px-6 py-2.5 font-bold text-sm uppercase tracking-wider rounded-t-lg transition-all border border-b-0 ${activeTab === 'CFA VALIDATION'
             ? 'bg-primary text-white border-white/30'
             : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10 hover:text-white/80'
             }`}
         >
           CFA Validation By T1QM
-          <span className="absolute -top-2 -right-2 bg-amber-500 text-amber-950 text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg animate-pulse">ON PROGRESS</span>
         </button>
         <button
           onClick={() => onTabChange('PSI LV.1')}
@@ -105,6 +104,7 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
       </div>
 
       {/* Row 1: Title + Filters inline */}
+      {activeTab !== 'CFA VALIDATION' && (
       <div className="flex items-end gap-3 bg-primary/80 border border-white/20 rounded-b-lg rounded-tr-lg px-4 py-2.5">
         {/* Title */}
         <div className="flex items-center gap-2 mr-2 shrink-0 pb-1">
@@ -176,6 +176,7 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

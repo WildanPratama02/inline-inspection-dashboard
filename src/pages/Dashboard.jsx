@@ -7,6 +7,7 @@ import DefectImages from '../components/DefectImages';
 import SummaryView from '../components/SummaryView';
 import DashboardContentView from '../components/DashboardContentView';
 import SummaryPassRateTable from '../components/SummaryPassRateTable';
+import CfaValidationDashboard from '../components/CfaValidationDashboard';
 import WeeklyExportController from '../components/WeeklyExportController';
 import DashboardExportController from '../components/DashboardExportController';
 import PsiEmailExportController from '../components/PsiEmailExportController';
@@ -609,7 +610,9 @@ const Dashboard = () => {
         />
       </div>
 
-      {activeTab === 'SUMMARY RFT' ? (
+      {activeTab === 'CFA VALIDATION' ? (
+        <CfaValidationDashboard rawData={data.raw} />
+      ) : activeTab === 'SUMMARY RFT' ? (
         <SummaryPassRateTable data={tabFilteredData} rawData={data.raw} resolveInspectorType={resolveInspectorType} />
       ) : viewMode === 'dashboard' ? (
         <DashboardContentView id="dashboard-canvas" data={tabFilteredData} rawData={data.raw} filters={effectiveFilters} activeTab={activeTab} />
