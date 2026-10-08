@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Header from '../components/Header';
 import FilterPanel from '../components/FilterPanel';
 import KPIBox from '../components/KPIBox';
@@ -14,6 +14,7 @@ import PsiEmailExportController from '../components/PsiEmailExportController';
 import AqlEmailExportController from '../components/AqlEmailExportController';
 import ExportModal from '../components/ExportModal';
 import { exportToExcelRFT, exportToExcelDetail } from '../utils/excelExportUtils';
+import { exportCfaAlignmentExcel } from '../utils/cfaAlignmentExport';
 import { fetchData } from '../services/googleSheetService';
 import {
   normalizeKey,
@@ -56,6 +57,11 @@ const Dashboard = () => {
   });
 
   const rawDataRef = useRef([]);
+  // Rows currently shown (after its own filters) by the CFA VALIDATION tab, for EXPORT EXCEL
+  const cfaValidationRowsRef = useRef([]);
+  const handleCfaValidationRowsChange = useCallback((rows) => {
+    cfaValidationRowsRef.current = rows;
+  }, []);
 
   // Helper: resolve inspector type using dynamic sheet map first, then static map as fallback
   const resolveInspectorType = (inspName, item) => {
@@ -589,7 +595,10 @@ const Dashboard = () => {
             }
           }}
           onExportExcel={() => {
-            if (activeTab === 'SUMMARY RFT') {
+            if (activeTab === 'CFA VALIDATION') {
+              const stamp = new Date().toISOString().slice(0, 10);
+              exportCfaAlignmentExcel(cfaValidationRowsRef.current, `DEFECT_ALIGNMENT_${stamp}.xls`);
+            } else if (activeTab === 'SUMMARY RFT') {
               exportToExcelRFT(tabFilteredData, data.raw, resolveInspectorType, 'Summary_RFT_Report.xls');
             } else {
               const filename = `Inspection_Detail_${activeTab ? activeTab.replace(/\s+/g, '_') : 'Report'}.xls`;
@@ -611,7 +620,7 @@ const Dashboard = () => {
       </div>
 
       {activeTab === 'CFA VALIDATION' ? (
-        <CfaValidationDashboard rawData={data.raw} />
+        <CfaValidationDashboard rawData={data.raw} onFilteredRowsChange={handleCfaValidationRowsChange} />
       ) : activeTab === 'SUMMARY RFT' ? (
         <SummaryPassRateTable data={tabFilteredData} rawData={data.raw} resolveInspectorType={resolveInspectorType} />
       ) : viewMode === 'dashboard' ? (

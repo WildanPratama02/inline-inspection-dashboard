@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList
@@ -33,7 +33,7 @@ const formatShortCfaName = (name) => {
   return `${parts[0]} ${parts.slice(1).map(p => p.charAt(0) + '.').join(' ')}`;
 };
 
-const CfaValidationDashboard = ({ rawData = [] }) => {
+const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
   // Theme state: default to 'light' as requested
   const [theme, setTheme] = useState('light');
   const isDark = theme === 'dark';
@@ -107,6 +107,11 @@ const CfaValidationDashboard = ({ rawData = [] }) => {
     defectMatrixData,
     filteredRowsCount
   } = metrics;
+
+  // Share the filtered rows with the page-level EXPORT EXCEL menu
+  useEffect(() => {
+    if (onFilteredRowsChange) onFilteredRowsChange(metrics.filteredRows || []);
+  }, [metrics.filteredRows, onFilteredRowsChange]);
 
   // Filtered table rows based on quick search
   const filteredTable = useMemo(() => {

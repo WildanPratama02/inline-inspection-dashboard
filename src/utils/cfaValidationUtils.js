@@ -55,6 +55,20 @@ export const CFA_NAME_CANONICAL = {
   AZZIAH: 'AZIZAH'
 };
 
+// Full CFA names confirmed by the team, used in the Excel export.
+// Names not listed are taken from the T1QM CFA NAME column (see resolveCfaFullNames).
+export const CFA_FULL_NAMES = {
+  NELLI: 'NELLI FATIMAH',
+  ALFINDA: 'ALFINDA DWI FIRMANSYAH',
+  FIRDAUS: 'FIRDAUS MAKANANA',
+  SOFIA: 'SOFIA PUTRI ANGGRAENI',
+  'EVA JULIYANI': 'EVA JULIYANI',
+  AZIZAH: 'NUR AZIZAH',
+  DISKA: 'DISKA AINURRAHMA',
+  INA: 'ZULIA NOOR ROHMAH',
+  INTAN: 'DEWI INTAN HAPSARI'
+};
+
 // AQL INSPECTOR NAME values that are not CFAs: test entries and inspectors outside the CFA team
 export const EXCLUDED_CFA_NAMES = ['CMA TEST', 'AGIS', 'REKA', 'HILHAM', 'AZZI'];
 
@@ -286,6 +300,11 @@ export const buildCfaValidationDataset = (rawData = []) => {
       const alignment = topDefects.length > 0 ? (matchCount / topDefects.length) : null;
       const passRate = totalQtyInsp > 0 ? Math.max(0, ((totalQtyInsp - totalQtyDef) / totalQtyInsp) * 100) : null;
 
+      // Level result: FAIL if any record of this level failed
+      const statuses = records.map(rec => String(rec.status_po || '').trim().toUpperCase()).filter(Boolean);
+      const result = statuses.some(st => st.includes('FAIL')) ? 'FAIL' : (statuses.some(st => st.includes('PASS')) ? 'PASS' : '');
+      const firstRec = records[0];
+
       return {
         inspector: Array.from(inspectors).join(', ') || '-',
         inspectors: Array.from(inspectors),
@@ -295,7 +314,11 @@ export const buildCfaValidationDataset = (rawData = []) => {
         defects: allDefects,
         topDefects,
         matchCount,
-        alignment
+        alignment,
+        result,
+        qtyOrder: parseNumber(firstRec.qty_order),
+        partialQty: String(firstRec.partial_of_qty_po || '').trim(),
+        crd: String(firstRec.crd || '').trim()
       };
     };
 
@@ -350,6 +373,35 @@ export const buildCfaValidationDataset = (rawData = []) => {
 
   // Scope: only AQL inspections that T1QM has validated. Unvalidated CFA rows are left out
   // of every widget, filter option and count.
+  // Full CFA name per nickname, learned from the T1QM CFA NAME of the records joined to it.
+  // Preference: confirmed list, then a full name starting with the nickname, then the most
+  // frequent, then the longest (most complete spelling).
+  const votes = new Map(); // nickname -> Map(fullName -> count)
+  mergedDataset.forEach((row, cfaIdx) => {
+    const levels = t1qmByCfaIdx[cfaIdx];
+    [...levels['T1QM 1'], ...levels['T1QM 2'], ...levels['T1QM 3']].forEach(rec => {
+      const full = normalizeKey(rec.cfa_name);
+      if (!full || full === '-') return;
+      row.cfaNames.forEach(nick => {
+        if (nameScore(full, nick) === 0) return;
+        if (!votes.has(nick)) votes.set(nick, new Map());
+        const counts = votes.get(nick);
+        counts.set(full, (counts.get(full) || 0) + 1);
+      });
+    });
+  });
+  const fullNameOf = (nick) => {
+    if (CFA_FULL_NAMES[nick]) return CFA_FULL_NAMES[nick];
+    const counts = votes.get(nick);
+    if (!counts) return nick;
+    const startsWithNick = (full) => (full.split(' ')[0] === nick ? 1 : 0);
+    return Array.from(counts.entries())
+      .sort((a, b) => startsWithNick(b[0]) - startsWithNick(a[0]) || b[1] - a[1] || b[0].length - a[0].length)[0][0];
+  };
+  mergedDataset.forEach(row => {
+    row.cfaFullName = row.cfaNames.map(fullNameOf).join(', ') || row.cfaName;
+  });
+
   return mergedDataset.filter(row => row.hasT1qmValidation);
 };
 
