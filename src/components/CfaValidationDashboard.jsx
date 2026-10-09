@@ -164,8 +164,7 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
       : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200',
     legendBlue: isDark ? 'text-blue-300' : 'text-blue-700',
     legendRed: isDark ? 'text-red-300' : 'text-red-700',
-    legendAmber: isDark ? 'text-amber-300' : 'text-amber-700',
-    legendGray: isDark ? 'text-slate-300' : 'text-slate-600'
+    legendAmber: isDark ? 'text-amber-300' : 'text-amber-700'
   };
 
   // Tooltip text stays light on the dark tooltip box in both themes;
@@ -673,9 +672,6 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
                   <span>Trace Flow (Sankey)</span>
                 </button>
               </div>
-              <p className={`text-[10px] font-semibold mt-0.5 ${themeClasses.subText}`}>
-                Kesesuaian temuan defect antara CFA dan T1QM per Inspector
-              </p>
             </div>
             <div className="flex items-center gap-4 text-[10px] font-black">
               <span className={`flex items-center gap-1.5 ${themeClasses.legendBlue}`}>
@@ -683,9 +679,6 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
               </span>
               <span className={`flex items-center gap-1.5 ${themeClasses.legendRed}`}>
                 <span className="w-2.5 h-2.5 bg-red-600 rounded-sm inline-block shadow-sm"></span> Mis-Match Rate %
-              </span>
-              <span className={`flex items-center gap-1.5 ${themeClasses.legendGray}`}>
-                <span className="w-2.5 h-2.5 bg-slate-500 rounded-sm inline-block shadow-sm"></span> No T1QM Defect
               </span>
             </div>
           </div>
@@ -704,9 +697,10 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
                 />
                 <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} allowDataOverflow tick={{ fontSize: 10, fontWeight: '700', fill: themeClasses.tickColor }} unit="%" />
                 <Tooltip
-                  formatter={(val, name, item) => (
-                    item.dataKey === 'noDefectRate' ? [item.payload.status, 'Status'] : [`${val}%`, name]
-                  )}
+                  formatter={(val, name, item) => {
+                    const count = item.dataKey === 'matchRate' ? item.payload.matchCount : item.payload.mismatchCount;
+                    return [`${val}% (${count} level)`, name];
+                  }}
                   contentStyle={tooltipContentStyle}
                   itemStyle={tooltipItemStyle}
                 />
@@ -724,15 +718,6 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
                     position="center"
                     formatter={(v) => (v >= 20 ? `${v}%` : '')}
                     style={{ fontSize: 10, fontWeight: '900', fill: '#FFFFFF' }}
-                  />
-                </Bar>
-                <Bar dataKey="noDefectRate" name="No T1QM Defect" stackId="matrix" fill="#64748B" radius={[0, 0, 0, 0]}>
-                  <LabelList
-                    dataKey="status"
-                    position="center"
-                    angle={-90}
-                    formatter={(v) => (v && v !== 'VALIDATED' ? v : '')}
-                    style={{ fontSize: 8.5, fontWeight: '900', fill: '#FFFFFF' }}
                   />
                 </Bar>
               </BarChart>

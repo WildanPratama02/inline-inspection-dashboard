@@ -162,6 +162,21 @@ export const extractDefectList = (row, maxSlots = 25) => {
   return defects;
 };
 
+/**
+ * Match rule for one validated T1QM level against the CFA findings (one result per level):
+ *   CFA defect(s), T1QM empty                     -> Match
+ *   CFA empty, T1QM defect(s)                     -> Match
+ *   CFA empty, T1QM empty                         -> Match
+ *   both have defects, >= 1 CFA defect in T1QM    -> Match
+ *   both have defects, no CFA defect in T1QM      -> Mis-Match
+ * foundCount = CFA defects found in the T1QM list (detail for the export / Sankey).
+ */
+export const compareCfaWithT1qm = (cfaDefects = [], t1qmDefects = []) => {
+  const foundCount = cfaDefects.filter(d => t1qmDefects.includes(d)).length;
+  const isMatch = cfaDefects.length === 0 || t1qmDefects.length === 0 || foundCount > 0;
+  return { foundCount, isMatch };
+};
+
 // Number of T1QM defects per level compared against the CFA findings
 export const T1QM_TOP_DEFECTS = 5;
 
@@ -296,8 +311,7 @@ export const buildCfaValidationDataset = (rawData = []) => {
 
       // Alignment compares only the top 5 T1QM defects (by QTY DEFECT) of this level
       const topDefects = topDefectsByQty(records);
-      const matchCount = topDefects.filter(d => cfaDefects.includes(d)).length;
-      const alignment = topDefects.length > 0 ? (matchCount / topDefects.length) : null;
+      const { foundCount, isMatch } = compareCfaWithT1qm(cfaDefects, topDefects);
       const passRate = totalQtyInsp > 0 ? Math.max(0, ((totalQtyInsp - totalQtyDef) / totalQtyInsp) * 100) : null;
 
       // Level result: FAIL if any record of this level failed
@@ -313,8 +327,8 @@ export const buildCfaValidationDataset = (rawData = []) => {
         passRate,
         defects: allDefects,
         topDefects,
-        matchCount,
-        alignment,
+        foundCount,
+        isMatch,
         result,
         qtyOrder: parseNumber(firstRec.qty_order),
         partialQty: String(firstRec.partial_of_qty_po || '').trim(),
@@ -334,14 +348,11 @@ export const buildCfaValidationDataset = (rawData = []) => {
       }
     });
 
-    // Same as DEFECT ALIGNMENT sheet: AVERAGE of ALIGMENT T1QM1..T1QM3,
-    // skipping levels that were not done or found no defect
-    const levelAlignments = [t1qm1, t1qm2, t1qm3]
-      .map(lvl => (lvl ? lvl.alignment : null))
-      .filter(a => a !== null);
-    const alignmentAvg = levelAlignments.length > 0
-      ? levelAlignments.reduce((sum, a) => sum + a, 0) / levelAlignments.length
-      : null;
+    // Match / Mis-Match frequency = number of T1QM levels done (unvalidated levels skipped)
+    const doneLevels = [t1qm1, t1qm2, t1qm3].filter(Boolean);
+    const matchFreq = doneLevels.filter(lvl => lvl.isMatch).length;
+    const mismatchFreq = doneLevels.length - matchFreq;
+    const matchRate = matchFreq + mismatchFreq > 0 ? matchFreq / (matchFreq + mismatchFreq) : null;
 
     const destCategory = standardizeDestinationCategory(
       cfa.destination_category || cfa.category,
@@ -366,7 +377,9 @@ export const buildCfaValidationDataset = (rawData = []) => {
       t1qm2,
       t1qm3,
       t1qmInspectors: Array.from(allT1qmInspectors),
-      alignmentAvg,
+      matchFreq,
+      mismatchFreq,
+      matchRate,
       hasT1qmValidation: Boolean(t1qm1 || t1qm2 || t1qm3)
     };
   });
@@ -519,16 +532,16 @@ export const calculateCfaValidationMetrics = (dataset = [], filters = {}) => {
           total_insp: 0, total_def: 0,
           regularCount: 0,
           criticalCount: 0,
-          alignmentSum: 0,
-          alignedRows: 0
+          matchFreq: 0,
+          mismatchFreq: 0,
+          validatedRows: 0
         });
       }
 
       const g = cfaGroupMap.get(cfa);
-      if (row.alignmentAvg !== null) {
-        g.alignmentSum += row.alignmentAvg;
-        g.alignedRows += 1;
-      }
+      g.matchFreq += row.matchFreq;
+      g.mismatchFreq += row.mismatchFreq;
+      g.validatedRows += 1;
 
       // Destination counts
       if (row.destinationCategory === 'CRITICAL') {
@@ -622,27 +635,18 @@ export const calculateCfaValidationMetrics = (dataset = [], filters = {}) => {
     .slice(0, 10);
 
   // ── WIDGET 7: DEFECT MATRIX VALIDATION BY T1QM (STACKED BAR 100%) ──
-  // Match rate = average of each validated PO's T1QM 1-3 alignment average.
-  // When T1QM found no defect on any of the CFA's POs, alignment is undefined, never 100%
+  // Match rate = frequency: Match levels / all validated T1QM levels of the CFA's POs
+  // (every in-scope PO has at least one validated level)
   const defectMatrixData = cfaList.map(item => {
-    if (item.alignedRows === 0) {
-      return {
-        cfaName: item.cfaName,
-        status: 'NO T1QM DEFECT',
-        matchRate: null,
-        mismatchRate: null,
-        noDefectRate: 100
-      };
-    }
-
-    const matchRate = Math.round((item.alignmentSum / item.alignedRows) * 100);
+    const total = item.matchFreq + item.mismatchFreq;
+    const matchRate = total > 0 ? Math.round((item.matchFreq / total) * 100) : 0;
     return {
       cfaName: item.cfaName,
-      status: 'VALIDATED',
-      alignedRows: item.alignedRows,
+      validatedRows: item.validatedRows,
+      matchCount: item.matchFreq,
+      mismatchCount: item.mismatchFreq,
       matchRate,
-      mismatchRate: 100 - matchRate,
-      noDefectRate: null
+      mismatchRate: 100 - matchRate
     };
   });
 
@@ -723,14 +727,15 @@ export const generateSankeyFlowData = (rows = [], maxDefects = 6) => {
     ];
 
     levels.forEach(lvl => {
-      if (!lvl.obj || !lvl.obj.topDefects || lvl.obj.topDefects.length === 0) return;
+      if (!lvl.obj) return;
 
       defects.forEach(d => {
         // Stage 1 -> Stage 2
         addLink(d, lvl.nodeName, 1);
 
         // Stage 2 -> Stage 3
-        const isMatched = lvl.obj.topDefects.includes(d);
+        // Per-defect detail (the matrix counts one result per level): T1QM found nothing -> Match
+        const isMatched = lvl.obj.topDefects.length === 0 || lvl.obj.topDefects.includes(d);
         if (isMatched) {
           addLink(lvl.nodeName, 'MATCH (ALIGNED)', 1);
         } else {

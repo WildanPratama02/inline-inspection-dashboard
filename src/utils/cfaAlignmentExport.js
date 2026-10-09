@@ -134,21 +134,28 @@ const buildLevelCells = (level, data) => {
   ].join('');
 };
 
-// Same formulas as the reference: RUMUS MATCH counts CFA findings found in T1QM,
-// ALIGMENT = T1QM top-5 findings also found by CFA / T1QM findings listed
+// Match rule per validated T1QM level (same as compareCfaWithT1qm):
+//   Match when CFA or T1QM is empty, or when at least 1 CFA finding is in the T1QM list; else Mis-Match.
+// RUMUS MATCH = CFA findings found in T1QM, RESULT MATCH = MATCH / MIS-MATCH (blank when the level
+// was not done), MATCH RATE = MATCH levels / validated levels (frequency, as the dashboard)
 const buildCalcCells = () => {
   const cfaRange = rowRange(COL_CFA_DEFECT_FIRST, COL_CFA_DEFECT_FIRST + 4);
   const cells = [];
+  const resultRefs = [];
   LEVELS.forEach((level, i) => {
     const b = LEVEL_START[level.key];
+    const validated = `RC${b}`;
     const t1Range = rowRange(b + 6, b + 10);
+    const anyEmpty = `OR(COUNTA(${cfaRange})=0,COUNTA(${t1Range})=0)`;
+    const found = `SUMPRODUCT(--ISNUMBER(MATCH(${cfaRange},${t1Range},0)))`;
     const col = COL_MATCH_FIRST + i * 2;
-    cells.push(formulaCell(col, 'Cell', `=SUMPRODUCT(--ISNUMBER(MATCH(${cfaRange},${t1Range},0)))`));
-    cells.push(formulaCell(col + 1, 'CellPct',
-      `=IF(COUNTA(${t1Range})=0,"",SUMPRODUCT(--ISNUMBER(MATCH(${t1Range},${cfaRange},0)))/COUNTA(${t1Range}))`));
+    cells.push(formulaCell(col, 'Cell', `=IF(${validated}="","",${found})`));
+    cells.push(formulaCell(col + 1, 'Cell', `=IF(${validated}="","",IF(OR(${anyEmpty},RC${col}>0),"MATCH","MIS-MATCH"))`));
+    resultRefs.push(`RC${col + 1}`);
   });
-  const alignCols = [0, 1, 2].map(i => `RC${COL_MATCH_FIRST + i * 2 + 1}`).join(',');
-  cells.push(formulaCell(TOTAL_COLS, 'CellPctBold', `=IFERROR(AVERAGE(${alignCols}),"")`));
+  const matched = resultRefs.map(ref => `(${ref}="MATCH")`).join('+');
+  const done = resultRefs.map(ref => `(${ref}<>"")`).join('+');
+  cells.push(formulaCell(TOTAL_COLS, 'CellPctBold', `=IFERROR((${matched})/(${done}),"")`));
   return cells.join('');
 };
 
@@ -186,8 +193,8 @@ const buildHeaderRows = () => {
     ...[1, 2, 3, 4, 5].map(i => `DEFECT FINDING ${n}-${i}`), `CHECK BY &#10;T1QM ${n}`
   ];
   const calcHeads = [
-    'RUMUS MATCH T1QM1', 'ALIGMENT &#10;T1QM1', 'RUMUS MATCH T1QM2', 'ALIGMENT &#10;T1QM2',
-    'RUMUS MATCH T1QM3', 'ALIGMENT &#10;T1QM3', 'AVERAGE'
+    'RUMUS MATCH T1QM1', 'RESULT MATCH &#10;T1QM1', 'RUMUS MATCH T1QM2', 'RESULT MATCH &#10;T1QM2',
+    'RUMUS MATCH T1QM3', 'RESULT MATCH &#10;T1QM3', 'MATCH RATE&#10;(FREKUENSI)'
   ];
   // Header text is pre-escaped (&#10; line breaks), so it is written as-is
   const head = (style, text) => `<Cell ss:StyleID="${style}"><Data ss:Type="String">${text}</Data></Cell>`;
