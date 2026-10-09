@@ -113,9 +113,6 @@ const numberCell = (index, value) => (
   value || value === 0 ? cell(index, 'Cell', value, 'Number') : cell(index, 'Cell', '')
 );
 
-// R1C1 range of the current row, absolute columns
-const rowRange = (from, to) => `RC${from}:RC${to}`;
-
 const buildLevelCells = (level, data) => {
   const b = LEVEL_START[level.key];
   if (!data) {
@@ -134,23 +131,19 @@ const buildLevelCells = (level, data) => {
   ].join('');
 };
 
-// Match rule per validated T1QM level (same as compareCfaWithT1qm):
-//   Match when CFA or T1QM is empty, or when at least 1 CFA finding is in the T1QM list; else Mis-Match.
+// RUMUS MATCH / RESULT MATCH are written as values from the dashboard calculation, because the
+// match also uses QA-agreed equivalences (BONDING = BONDING GAP, cement stain = OVER CEMENTING)
+// that the DEFECT FINDING columns alone cannot express.
 // RUMUS MATCH = CFA findings found in T1QM, RESULT MATCH = MATCH / MIS-MATCH (blank when the level
-// was not done), MATCH RATE = MATCH levels / validated levels (frequency, as the dashboard)
-const buildCalcCells = () => {
-  const cfaRange = rowRange(COL_CFA_DEFECT_FIRST, COL_CFA_DEFECT_FIRST + 4);
+// was not done), MATCH RATE = MATCH levels / validated levels (formula, frequency as the dashboard)
+const buildCalcCells = (row) => {
   const cells = [];
   const resultRefs = [];
   LEVELS.forEach((level, i) => {
-    const b = LEVEL_START[level.key];
-    const validated = `RC${b}`;
-    const t1Range = rowRange(b + 6, b + 10);
-    const anyEmpty = `OR(COUNTA(${cfaRange})=0,COUNTA(${t1Range})=0)`;
-    const found = `SUMPRODUCT(--ISNUMBER(MATCH(${cfaRange},${t1Range},0)))`;
+    const data = row[level.key];
     const col = COL_MATCH_FIRST + i * 2;
-    cells.push(formulaCell(col, 'Cell', `=IF(${validated}="","",${found})`));
-    cells.push(formulaCell(col + 1, 'Cell', `=IF(${validated}="","",IF(OR(${anyEmpty},RC${col}>0),"MATCH","MIS-MATCH"))`));
+    cells.push(data ? numberCell(col, data.foundCount) : cell(col, 'Cell', ''));
+    cells.push(cell(col + 1, 'Cell', data ? (data.isMatch ? 'MATCH' : 'MIS-MATCH') : ''));
     resultRefs.push(`RC${col + 1}`);
   });
   const matched = resultRefs.map(ref => `(${ref}="MATCH")`).join('+');
@@ -169,7 +162,7 @@ const buildDataRow = (row) => {
     ${dateCell(1, row.date)}${cell(2, 'Cell', row.cfaFullName || row.cfaName)}${cell(3, 'Cell', row.historicalPo)}${cell(4, 'CellText', row.po)}${numberCell(5, firstLevel.qtyOrder)}${cell(6, 'Cell', firstLevel.partialQty)}${cell(7, 'Cell', row.cell)}${cell(8, 'Cell', row.model)}${cell(9, 'Cell', row.article)}${cell(10, 'Cell', row.country)}${cell(11, 'Cell', row.destination)}${dateCell(12, row.podd)}${dateCell(13, firstLevel.crd)}
     ${[0, 1, 2, 3, 4].map(i => cell(COL_CFA_DEFECT_FIRST + i, 'Cell', defects[i] || '')).join('')}
     ${LEVELS.map(level => buildLevelCells(level, row[level.key])).join('\n    ')}
-    ${buildCalcCells()}
+    ${buildCalcCells(row)}
    </Row>\n`;
 };
 

@@ -177,6 +177,42 @@ export const compareCfaWithT1qm = (cfaDefects = [], t1qmDefects = []) => {
   return { foundCount, isMatch };
 };
 
+// Defect names treated as the same finding when comparing CFA with T1QM (agreed with QA).
+// The recorded names stay as they are for display and the Top 10 chart.
+export const MATCH_EQUIVALENTS = [
+  ['BONDING', 'BONDING GAP']
+];
+
+// T1QM records cement stains as "CONTAMINATION (STAINS, CEMENT, ETC.)"; QA counts that
+// as the same finding as CFA OVER CEMENTING
+const isCementContamination = (rawName) => {
+  const str = String(rawName || '').toUpperCase();
+  return str.includes('CONTAM') && str.includes('CEMENT');
+};
+
+/**
+ * Names a T1QM level counts as found when matching CFA defects: its top defects, plus
+ * equivalent names, plus OVER CEMENTING when a top CONTAMINATION was a cement stain.
+ */
+export const t1qmMatchNames = (topDefects = [], records = [], maxSlots = 25) => {
+  const names = new Set(topDefects);
+  topDefects.forEach(name => {
+    MATCH_EQUIVALENTS.forEach(group => {
+      if (group.includes(name)) group.forEach(eq => names.add(eq));
+    });
+  });
+  if (topDefects.includes('CONTAMINATION')) {
+    const hasCementStain = records.some(rec => {
+      for (let i = 1; i <= maxSlots; i++) {
+        if (isCementContamination(rec[`defect_name_${i}`] || rec[`defect_name${i}`])) return true;
+      }
+      return false;
+    });
+    if (hasCementStain) names.add('OVER CEMENTING');
+  }
+  return Array.from(names);
+};
+
 // Number of T1QM defects per level compared against the CFA findings
 export const T1QM_TOP_DEFECTS = 5;
 
@@ -311,7 +347,8 @@ export const buildCfaValidationDataset = (rawData = []) => {
 
       // Alignment compares only the top 5 T1QM defects (by QTY DEFECT) of this level
       const topDefects = topDefectsByQty(records);
-      const { foundCount, isMatch } = compareCfaWithT1qm(cfaDefects, topDefects);
+      const matchNames = t1qmMatchNames(topDefects, records);
+      const { foundCount, isMatch } = compareCfaWithT1qm(cfaDefects, matchNames);
       const passRate = totalQtyInsp > 0 ? Math.max(0, ((totalQtyInsp - totalQtyDef) / totalQtyInsp) * 100) : null;
 
       // Level result: FAIL if any record of this level failed
@@ -327,6 +364,7 @@ export const buildCfaValidationDataset = (rawData = []) => {
         passRate,
         defects: allDefects,
         topDefects,
+        matchNames,
         foundCount,
         isMatch,
         result,
@@ -735,7 +773,7 @@ export const generateSankeyFlowData = (rows = [], maxDefects = 6) => {
 
         // Stage 2 -> Stage 3
         // Per-defect detail (the matrix counts one result per level): T1QM found nothing -> Match
-        const isMatched = lvl.obj.topDefects.length === 0 || lvl.obj.topDefects.includes(d);
+        const isMatched = lvl.obj.topDefects.length === 0 || lvl.obj.matchNames.includes(d);
         if (isMatched) {
           addLink(lvl.nodeName, 'MATCH (ALIGNED)', 1);
         } else {
