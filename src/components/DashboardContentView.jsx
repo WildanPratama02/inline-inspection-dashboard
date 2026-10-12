@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import KPIBox from './KPIBox';
 import DefectChart from './DefectChart';
 import DefectImages from './DefectImages';
@@ -6,12 +6,13 @@ import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
 import CfaSeverityChart from './CfaSeverityChart';
 import CfaInspectorChart from './CfaInspectorChart';
-import { findKey, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { findKey, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
   const isCfa = currentTab === 'CFA';
   const is3rdParty = currentTab === '3rd Party' || isCfa;
+  const isT1qm = currentTab === 'T1QM';
   const kpis = useMemo(() => {
     if (!data || data.length === 0) {
       return { qtyOrder: 0, qtyDefect: 0, rft: '0.0', defectRate: '0.0', aGrade: 0, bGrade: '-', totalAGrade: 0, criticalDefect: 0, majorDefect: 0, minorDefect: 0 };
@@ -57,6 +58,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     let totalBGrade = 0;
     let sumRft = 0;
     let countRft = 0;
+    let weightedRftSum = 0;
+    let weightedRftQuantity = 0;
     let totalPass = 0;
     let totalFail = 0;
     let totalAGradeFull = 0;
@@ -86,7 +89,10 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       if (isDefectFiltered) {
         for (let i = 1; i <= 25; i++) {
           const dName = defectNameKeys[i] ? item[defectNameKeys[i]] : null;
-          if (dName && filters.defectName.includes(dName.trim())) {
+          const selectedDefect = filters.defectName.some((name) => (
+            isT1qm ? normalizeDefectName(name) === normalizeDefectName(dName) : name === String(dName).trim()
+          ));
+          if (dName && selectedDefect) {
             const defectQty = parseNumber(item[qtyDefectKeys[i]]);
             thisRowFilteredDefects += defectQty;
 
@@ -117,8 +123,11 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         totalBGrade += Math.round(thisRowFilteredBGrade);
       } else {
         totalBGrade += rowBGrade;
-        // Total defect: use pre-computed column if available
-        if (totalDefectKey) {
+        if (isT1qm) {
+          for (let i = 1; i <= 25; i++) {
+            if (qtyDefectKeys[i]) totalDefects += parseNumber(item[qtyDefectKeys[i]]);
+          }
+        } else if (totalDefectKey) {
           totalDefects += rowTotalDefect;
         } else {
           for (let i = 1; i <= 25; i++) {
@@ -135,7 +144,9 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         const dName = defectNameKeys[i] ? item[defectNameKeys[i]] : null;
 
         if (qty <= 0) continue;
-        if (isDefectFiltered && dName && !filters.defectName.includes(dName.trim())) continue;
+        if (isDefectFiltered && dName && !filters.defectName.some((name) => (
+          isT1qm ? normalizeDefectName(name) === normalizeDefectName(dName) : name === String(dName).trim()
+        ))) continue;
 
         if (cls.includes('CRITICAL')) totalCritical += qty;
         else if (cls.includes('MAJOR')) totalMajor += qty;
@@ -148,6 +159,10 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         if (val !== null) {
           sumRft += val;
           countRft++;
+          if (isT1qm && rowInspection > 0) {
+            weightedRftSum += val * rowInspection;
+            weightedRftQuantity += rowInspection;
+          }
         }
       }
 
@@ -185,7 +200,9 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       ? ((totalAGrade / totalInspection) * 100)
       : 0;
 
-    const otherRftVal = countRft > 0
+    const otherRftVal = isT1qm && weightedRftQuantity > 0
+      ? (weightedRftSum / weightedRftQuantity)
+      : countRft > 0
       ? (sumRft / countRft)
       : (totalInspection > 0
         ? (((totalInspection - totalDefects) / totalInspection) * 100)
@@ -203,6 +220,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     const passRateBuilding = passRateBuildingVal > 0
       ? passRateBuildingVal.toFixed(1)
       : '0.0';
+    const t1qmStatusCounts = isT1qm ? getT1qmStatusCounts(data) : null;
+    const t1qmEvaluated = t1qmStatusCounts ? t1qmStatusCounts.pass + t1qmStatusCounts.fail : 0;
 
     // PSI Defect Rate: (QTY DEFECT / QTY INSPECTION) * 100%
     const psiDefectRateVal = totalInspection > 0
@@ -218,6 +237,10 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       qtyChecking: totalInspection,
       qtyDefect: totalDefects,
       rft,
+      passCount: t1qmStatusCounts?.pass || 0,
+      failCount: t1qmStatusCounts?.fail || 0,
+      unknownStatusCount: t1qmStatusCounts?.unknown || 0,
+      passRate: t1qmEvaluated > 0 ? ((t1qmStatusCounts.pass / t1qmEvaluated) * 100).toFixed(1) : '0.0',
       defectRate,
       aGrade: totalAGrade,
       bGrade: totalBGrade,
@@ -233,13 +256,14 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
       sheetCritical: totalSheetCritical,
       sheetDefect: totalSheetDefect
     };
-  }, [data, rawData, is3rdParty, currentTab]);
+  }, [data, rawData, filters, is3rdParty, isT1qm, currentTab]);
 
   const defectStats = useMemo(() => {
     if (!data || data.length === 0) return [];
 
     const counts = {};
     const imageSelections = {};
+    const displayNames = {};
     const firstItem = data[0] || rawData[0] || {};
 
     const nameKeys = [];
@@ -271,13 +295,16 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         const url = imageUrlKeys.map((key) => item[key]).find((value) => value && value !== '-');
 
         if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
-          const normalizedName = name.trim();
+          const displayName = name.trim();
+          const normalizedName = isT1qm ? normalizeDefectName(displayName) : displayName;
 
           if (filters && filters.defectName && filters.defectName.length > 0) {
-            if (!filters.defectName.includes(normalizedName)) continue;
+            const filterName = isT1qm ? normalizeDefectName(normalizedName) : normalizedName;
+            if (!filters.defectName.includes(filterName)) continue;
           }
 
           counts[normalizedName] = (counts[normalizedName] || 0) + qty;
+          displayNames[normalizedName] ||= displayName;
 
           if (url && url !== '-') {
             const currentSelection = imageSelections[normalizedName];
@@ -294,10 +321,10 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     });
 
     return Object.entries(counts)
-      .map(([name, value]) => ({ name, value, url: imageSelections[name]?.url || null }))
+      .map(([name, value]) => ({ name: displayNames[name] || name, value, url: imageSelections[name]?.url || null }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [data, rawData, filters]);
+  }, [data, rawData, filters, isT1qm]);
 
   const defectImages = useMemo(() => {
     // If pre-loaded images are provided (PDF export), use them directly
@@ -384,7 +411,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     <div id={id} className="industrial-border bg-primary p-4 relative w-full rounded-sm flex flex-col gap-3">
 
       {/* ── ON PROGRESS Banner for CFA & T1QM ── */}
-      {['T1QM', 'T1QM 1', 'T1QM 2', 'T1QM 3', 'CFA VALIDATION'].includes(currentTab) && (
+      {currentTab === 'CFA VALIDATION' && (
         <div className="industrial-border bg-amber-950/40 border-amber-500/40 rounded-sm p-3.5 flex items-center justify-between gap-4 text-amber-200">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🚧</span>
@@ -531,11 +558,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
             <>
               {/* CFA Report Layout: DefectChart full width */}
               <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
-                <DefectChart data={defectStats} height={260} />
-              </div>
-              {/* Building Status Chart (by Factory) */}
-              <div className="w-full">
-                <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
+                <DefectChart data={defectStats} height={278} />
               </div>
             </>
           ) : is3rdParty ? (
@@ -545,7 +568,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
                 <DefectChart data={defectStats} height={260} />
               </div>
               {/* Building Status Chart */}
-              <div className="w-full">
+              <div className="w-full flex-1 flex flex-col min-h-0">
                 <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
               </div>
             </>
@@ -555,8 +578,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2">
                 <DefectChart data={defectStats} />
               </div>
-              <div className="industrial-border bg-white/5 p-3">
-                <StatsChart data={data} rawData={rawData} filters={filters} />
+              <div className="industrial-border bg-white/5 p-3 flex-1 flex flex-col min-h-0">
+                <StatsChart data={data} rawData={rawData} filters={filters} activeTab={currentTab} />
               </div>
             </>
           )}
@@ -566,18 +589,33 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
         <div className="w-full lg:w-1/2 flex flex-col gap-2 min-w-0">
           {/* KPI Boxes */}
           <KPIBox kpis={kpis} metadata={headerMetadata} is3rdParty={is3rdParty} activeTab={currentTab} />
-          {/* CFA Report: Severity Breakdown + Inspector Performance instead of Defect Images */}
+          {/* CFA Report: Severity Breakdown (Inspector moved to bottom row) */}
           {isCfa ? (
-            <>
-              <CfaSeverityChart data={data} />
-              <CfaInspectorChart data={data} rawData={rawData} />
-            </>
+            <CfaSeverityChart data={data} />
           ) : (
             <DefectImages defects={defectImages} />
           )}
         </div>
 
       </div>
+
+      {/* ── CFA Bottom Row: BuildingStatus + InspectorPerformance — equal height ── */}
+      {isCfa && (
+        <div className="flex flex-col lg:flex-row gap-2 w-full">
+          <div className="w-full lg:w-1/2 min-w-0 flex flex-col">
+            <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
+          </div>
+          <div className="w-full lg:w-1/2 min-w-0 flex flex-col">
+            <CfaInspectorChart data={data} rawData={rawData} />
+          </div>
+        </div>
+      )}
+
+      {isT1qm && (
+        <div className="w-full min-w-0 flex flex-col">
+          <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
+        </div>
+      )}
     </div>
   );
 };

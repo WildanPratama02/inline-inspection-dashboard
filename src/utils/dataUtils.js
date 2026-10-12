@@ -1,5 +1,35 @@
 export const normalizeKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+const T1QM_TYPES = new Set(['T1QM1', 'T1QM2', 'T1QM3']);
+
+export const normalizeT1qmType = (value) => {
+  const normalized = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+  return T1QM_TYPES.has(normalized) ? `T1QM ${normalized.slice(-1)}` : '';
+};
+
+export const isT1qmType = (value) => Boolean(normalizeT1qmType(value));
+
+export const getT1qmInspectionTypes = (rows = []) => [...new Set(rows
+  .map((row) => {
+    const typeKey = findKey(row, 'type_inspection', 'type inspection');
+    return typeKey ? normalizeT1qmType(row[typeKey]) : '';
+  })
+  .filter(Boolean))].sort();
+
+export const matchesT1qmInspectionType = (type, selectedTypes = []) => (
+  selectedTypes.length === 0 || selectedTypes.includes(normalizeT1qmType(type))
+);
+
+export const normalizeDefectName = (value) => String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+
+export const isT1qmDateAnomaly = (value) => {
+  const date = String(value || '').trim();
+  if (date === '2008-08-28') return true;
+
+  const match = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return Boolean(match && Number(match[1]) === 28 && Number(match[2]) === 8 && Number(match[3]) === 2008);
+};
+
 export const findKey = (item, ...searchTerms) => {
   if (!item) return null;
 
@@ -32,11 +62,28 @@ export const findKey = (item, ...searchTerms) => {
   return null;
 };
 
+export const getT1qmStatusCounts = (rows = []) => {
+  const counts = { pass: 0, fail: 0, unknown: 0 };
+
+  rows.forEach((row) => {
+    const statusKey = findKey(row, 'status_po', 'status inspection', 'status');
+    const status = String((statusKey && row[statusKey]) || '').trim().toUpperCase();
+
+    if (status.includes('FAIL') || status.includes('REJECT') || status === 'F') counts.fail++;
+    else if (status.includes('PASS') || status.includes('APPROV') || status === 'P') counts.pass++;
+    else counts.unknown++;
+  });
+
+  return counts;
+};
+
 export const parseNumber = (value) => {
   if (value === null || value === undefined) return 0;
 
-  const normalized = String(value)
-    .trim()
+  const source = String(value).trim();
+  if (/[a-z]/i.test(source)) return 0;
+
+  const normalized = source
     .replace(/\./g, '')
     .replace(/,/g, '.')
     .replace(/[^\d.-]/g, '');
@@ -195,8 +242,8 @@ export const getInspectorType = (inspectorName, item) => {
 
     if (typeKey && targetItem[typeKey] && String(targetItem[typeKey]).trim() !== '' && String(targetItem[typeKey]).trim() !== '-') {
       const val = String(targetItem[typeKey]).trim().toUpperCase();
-      // Exact T1QM match / T1QM check
-      if (val.includes('T1QM') || val.includes('T1 QM') || val === 'T1QM' || val === 'T1') return 'T1QM';
+      if (isT1qmType(val)) return 'T1QM';
+      if (val.replace(/\s+/g, '').startsWith('T1QM')) return null;
       // Exact CFA match / CFA check
       if (val.includes('CFA')) return 'CFA';
       // Exact PSI or PSI LV.1 / LV.2 match

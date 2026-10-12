@@ -65,13 +65,14 @@
   box-sizing: border-box;
 }
 
-/* Recharts customization */
-.recharts-cartesian-grid-horizontal line,
-.recharts-cartesian-grid-vertical line {
+/* Recharts customization (dark dashboards).
+   Components with their own light/dark theme add .themed-charts and set colors per theme. */
+.recharts-cartesian-grid-horizontal line:not(.themed-charts *),
+.recharts-cartesian-grid-vertical line:not(.themed-charts *) {
   stroke: rgba(255, 255, 255, 0.1);
 }
 
-.recharts-text {
+.recharts-text:not(.themed-charts *) {
   fill: white !important;
   font-size: 12px;
 }

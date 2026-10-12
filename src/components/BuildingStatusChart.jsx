@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   ComposedChart,
   Bar,
@@ -7,7 +7,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   LabelList,
 } from 'recharts';
@@ -69,7 +68,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 /* ─── Custom Legend ───────────────────────────────────────────── */
 const CustomLegend = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 4, flexWrap: 'wrap' }}>
+  <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 'auto', paddingTop: 8, flexWrap: 'wrap' }}>
     {[
       { color: '#22c55e', label: 'PASS' },
       { color: '#ef4444', label: 'FAIL' },
@@ -109,7 +108,7 @@ const PassRateLabel = ({ x, y, value }) => {
 };
 
 /* ─── Main Component ──────────────────────────────────────────── */
-const BuildingStatusChart = ({ data = [], rawData = [], activeTab = '3rd Party' }) => {
+const BuildingStatusChart = ({ data = [], rawData = [], activeTab = '3rd Party', className = '' }) => {
   const isCfa   = activeTab === 'CFA';
   const isT1qm  = activeTab === 'T1QM';
 
@@ -122,15 +121,15 @@ const BuildingStatusChart = ({ data = [], rawData = [], activeTab = '3rd Party' 
     const cfaGroupKey = isCfa
       ? dateKey || 'date'
       : isT1qm
-      ? (findKey(firstItem, 'cfa_name', 'cfa name', 't1qm_name', 't1qm name', 'cfa', 'inspector', 'inspector_name') || factoryKey)
+      ? (findKey(firstItem, 'inspector', 'inspector_name') || factoryKey)
       : factoryKey;
     const statusKey   = findKey(firstItem, 'status_po', 'status po', 'status_inspection', 'status inspection', 'status', 'result', 'pass_fail');
 
     const buildingMap = {};
 
     data.forEach((item) => {
-      let rawBuilding = String(item[cfaGroupKey] || 'Unknown').trim();
-      if (!rawBuilding || rawBuilding === '-') rawBuilding = 'Unknown';
+      let rawBuilding = String(item[cfaGroupKey] || (isT1qm ? 'Unknown' : item[dateKey] || item[factoryKey] || 'Unknown')).trim();
+      if (!rawBuilding || rawBuilding === '-' || rawBuilding === 'undefined') rawBuilding = 'Unknown';
 
       if (!buildingMap[rawBuilding]) {
         buildingMap[rawBuilding] = { totalInspection: 0, pass: 0, fail: 0 };
@@ -152,7 +151,7 @@ const BuildingStatusChart = ({ data = [], rawData = [], activeTab = '3rd Party' 
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([building, stats]) => {
         const evaluated = stats.pass + stats.fail;
-        const passRate  = evaluated > 0 ? parseFloat(((stats.pass / evaluated) * 100).toFixed(1)) : 0;
+        const passRate  = evaluated > 0 ? parseFloat(((stats.pass / evaluated) * 100).toFixed(1)) : null;
         return {
           name: building,
           pass: stats.pass,
@@ -181,19 +180,22 @@ const BuildingStatusChart = ({ data = [], rawData = [], activeTab = '3rd Party' 
     : 'AQL 3RD PARTY — BUILDING STATUS (PASS / FAIL)';
 
   /* Dynamic chart height — taller when many factories */
-  const chartHeight = Math.max(260, chartData.length * 60);
+  const chartHeight = Math.max(260, chartData.length * 60, isCfa ? 450 : 0);
 
   return (
     <div
+      className={`industrial-border bg-white/5 rounded-sm flex flex-col w-full h-full flex-1 min-h-0 ${className}`}
       style={{
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.10)',
         borderRadius: 6,
         padding: '14px 12px 10px',
         width: '100%',
-        height: '100%',
+        height: isT1qm ? chartHeight + 64 : '100%',
         display: 'flex',
         flexDirection: 'column',
+        flex: 1,
+        minHeight: isT1qm ? chartHeight + 64 : 0,
       }}
     >
       {/* Header */}
@@ -222,8 +224,8 @@ const BuildingStatusChart = ({ data = [], rawData = [], activeTab = '3rd Party' 
       </div>
 
       {/* Chart */}
-      <div style={{ flex: 1, minHeight: chartHeight }}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ flex: 1, height: isT1qm ? chartHeight : undefined, minHeight: chartHeight, width: '100%', minWidth: 0 }}>
+        <ResponsiveContainer width="100%" height={isT1qm ? chartHeight : '100%'}>
           <ComposedChart
             data={chartData}
             margin={{ top: 20, right: 20, left: 0, bottom: chartData.length > 5 ? 40 : 10 }}

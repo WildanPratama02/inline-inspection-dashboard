@@ -68,7 +68,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 /* ─── Custom Legend ───────────────────────────────────────────── */
 const CustomLegend = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 4, flexWrap: 'wrap' }}>
+  <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 'auto', paddingTop: 8, flexWrap: 'wrap' }}>
     {[
       { color: '#22c55e', label: 'PASS' },
       { color: '#ef4444', label: 'FAIL' },
@@ -100,7 +100,7 @@ const PassRateLabel = ({ x, y, value }) => {
 };
 
 /* ─── Main Component ──────────────────────────────────────────── */
-const CfaInspectorChart = ({ data = [], rawData = [] }) => {
+const CfaInspectorChart = ({ data = [], rawData = [], className = '' }) => {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
@@ -155,6 +155,7 @@ const CfaInspectorChart = ({ data = [], rawData = [] }) => {
 
   return (
     <div
+      className={`industrial-border bg-white/5 rounded-sm flex flex-col w-full h-full flex-1 min-h-0 ${className}`}
       style={{
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.10)',
@@ -164,6 +165,8 @@ const CfaInspectorChart = ({ data = [], rawData = [] }) => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
       }}
     >
       {/* Header */}
@@ -196,7 +199,7 @@ const CfaInspectorChart = ({ data = [], rawData = [] }) => {
       </div>
 
       {/* Chart */}
-      <div style={{ flex: 1, minHeight: chartHeight }}>
+      <div style={{ flex: 1, minHeight: chartHeight, width: '100%', minWidth: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}

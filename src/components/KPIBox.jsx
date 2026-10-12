@@ -1,5 +1,3 @@
-import React from 'react';
-
 const formatNumberIndo = (num) => {
   if (num === null || num === undefined || num === '-') return '-';
   const val = Number(num);
@@ -42,7 +40,7 @@ const formatPercentIndo = (num) => {
   }) + '%';
 };
 
-const KPIBox = ({ kpis, metadata = {}, is3rdParty = false, activeTab }) => {
+const KPIBox = ({ kpis, is3rdParty = false, activeTab }) => {
   // ── Khusus AQL 3rd Party: 8 KPI box (4×2) ──
   if (activeTab === '3rd Party') {
     return (
@@ -125,6 +123,32 @@ const KPIBox = ({ kpis, metadata = {}, is3rdParty = false, activeTab }) => {
           </span>
         </div>
 
+      </div>
+    );
+  }
+
+  if (activeTab === 'T1QM') {
+    const metrics = [
+      { label: 'QTY INSPECTION', value: formatNumberIndo(kpis.qtyInspection), className: 'kpi-qty-inspection' },
+      { label: 'TOTAL DEFECT', value: formatNumberIndo(kpis.qtyDefect), className: 'kpi-qty-defect' },
+      { label: 'TOTAL PASS', value: formatNumberIndo(kpis.totalAGrade), className: 'kpi-rft' },
+      { label: 'PASS RATE', value: formatPercentIndo(kpis.rft), className: 'kpi-pass-rate-blue' },
+      { label: 'MINOR', value: formatNumberIndo(kpis.minorDefect), className: 'kpi-yellow' },
+      { label: 'MAJOR', value: formatNumberIndo(kpis.majorDefect), className: 'kpi-b-grade' },
+      { label: 'CRITICAL', value: formatNumberIndo(kpis.criticalDefect), className: 'kpi-critical-red' },
+      { label: 'DEFECT RATE', value: formatPercentIndo(kpis.defectRate), className: 'kpi-defect-rate-red' },
+    ];
+
+    return (
+      <div className="grid grid-cols-4 gap-2">
+        {metrics.map((metric) => (
+          <div key={metric.label} className={`${metric.className} p-2 px-3 flex flex-col justify-between industrial-border rounded-sm h-[76px]`}>
+            <span className="text-[10px] uppercase font-bold text-white/95 self-start leading-tight">{metric.label}</span>
+            <span className="text-[24px] font-bold text-center self-center my-auto text-white tracking-wide">
+              {metric.value}
+            </span>
+          </div>
+        ))}
       </div>
     );
   }
