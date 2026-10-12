@@ -142,6 +142,22 @@ export const standardizeDefectName = (rawName) => {
 /**
  * Standardize Destination Category to REGULAR or CRITICAL
  */
+// Latest of several "dd/mm/yyyy" dates, returned in the same format ('' when none parse)
+export const latestDate = (dates = []) => {
+  let best = '';
+  let bestKey = '';
+  dates.forEach(raw => {
+    const [d, m, y] = String(raw || '').trim().split('/');
+    if (!d || !m || !y) return;
+    const key = `${y.padStart(4, '0')}${m.padStart(2, '0')}${d.padStart(2, '0')}`;
+    if (key > bestKey) {
+      bestKey = key;
+      best = String(raw).trim();
+    }
+  });
+  return best;
+};
+
 export const standardizeDestinationCategory = (cat, dest = '', country = '') => {
   const combined = `${cat} ${dest} ${country}`.toUpperCase();
   if (combined.includes('CRITIC') || combined.includes('CRITICAL')) return 'CRITICAL';
@@ -260,6 +276,11 @@ export const buildCfaValidationDataset = (rawData = []) => {
   });
 
   const normalizeKey = (v) => String(v || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  // "P-2", "P2 1000 OF 1825", "P-2 928 OF 2128" -> 2
+  const partialNumber = (v) => {
+    const match = String(v || '').trim().toUpperCase().match(/^P\s*-?\s*(\d+)/);
+    return match ? Number(match[1]) : null;
+  };
 
   // Index CFA rows by PO; one PO can hold several AQL rows (different CFA / historical PO)
   const cfaIdxByPo = new Map();
@@ -305,6 +326,13 @@ export const buildCfaValidationDataset = (rawData = []) => {
     if (histKey) {
       const byHist = candidates.filter(idx => normalizeKey(cfaRows[idx].historycal_po || cfaRows[idx].historical_po) === histKey);
       if (byHist.length > 0) candidates = byHist;
+    }
+
+    // Partial shipment: CFA PARTIAL "P-2" vs T1QM PARTIAL OF QTY PO "P2 1000 OF 1825"
+    const t1qmPartial = partialNumber(row.partial_of_qty_po);
+    if (t1qmPartial !== null) {
+      const byPartial = candidates.filter(idx => partialNumber(cfaRows[idx].partial) === t1qmPartial);
+      if (byPartial.length > 0) candidates = byPartial;
     }
 
     const typeNormalized = String(row.type_inspection || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -370,7 +398,8 @@ export const buildCfaValidationDataset = (rawData = []) => {
         result,
         qtyOrder: parseNumber(firstRec.qty_order),
         partialQty: String(firstRec.partial_of_qty_po || '').trim(),
-        crd: String(firstRec.crd || '').trim()
+        crd: String(firstRec.crd || '').trim(),
+        validationDate: latestDate(records.map(rec => rec.date))
       };
     };
 
@@ -400,6 +429,9 @@ export const buildCfaValidationDataset = (rawData = []) => {
 
     return {
       date: cfa.date || '',
+      // Latest T1QM validation date over T1QM 1-3 (used as DATE in the Excel export)
+      validationDate: latestDate([t1qm1, t1qm2, t1qm3].map(lvl => lvl && lvl.validationDate)),
+      partial: String(cfa.partial || '').trim(),
       cfaName: cfaInspector,
       cfaNames: cfaNameList,
       historicalPo: String(cfa.historycal_po || cfa.historical_po || 'ANSI AQL').trim(),
@@ -486,9 +518,9 @@ export const calculateCfaValidationMetrics = (dataset = [], filters = {}) => {
     // 4. Destination Category filter
     if (destinationCategory !== 'ALL' && row.destinationCategory !== destinationCategory) return false;
 
-    // 5. Date Range filter
+    // 5. Date Range filter on the latest T1QM validation date (same DATE as the Excel export)
     if (startDate !== 'ALL' || endDate !== 'ALL') {
-      const rawDate = row.date;
+      const rawDate = row.validationDate || row.date;
       if (!rawDate) return false;
       let rowDate;
       if (rawDate.includes('/')) {

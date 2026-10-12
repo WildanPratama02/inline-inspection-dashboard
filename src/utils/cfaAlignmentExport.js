@@ -159,7 +159,7 @@ const buildDataRow = (row) => {
   const defects = row.cfaDefects || [];
 
   return `   <Row ss:Height="30">
-    ${dateCell(1, row.date)}${cell(2, 'Cell', row.cfaFullName || row.cfaName)}${cell(3, 'Cell', row.historicalPo)}${cell(4, 'CellText', row.po)}${numberCell(5, firstLevel.qtyOrder)}${cell(6, 'Cell', firstLevel.partialQty)}${cell(7, 'Cell', row.cell)}${cell(8, 'Cell', row.model)}${cell(9, 'Cell', row.article)}${cell(10, 'Cell', row.country)}${cell(11, 'Cell', row.destination)}${dateCell(12, row.podd)}${dateCell(13, firstLevel.crd)}
+    ${dateCell(1, row.validationDate || row.date)}${cell(2, 'Cell', row.cfaFullName || row.cfaName)}${cell(3, 'Cell', row.historicalPo)}${cell(4, 'CellText', row.po)}${numberCell(5, firstLevel.qtyOrder)}${cell(6, 'Cell', firstLevel.partialQty || row.partial)}${cell(7, 'Cell', row.cell)}${cell(8, 'Cell', row.model)}${cell(9, 'Cell', row.article)}${cell(10, 'Cell', row.country)}${cell(11, 'Cell', row.destination)}${dateCell(12, row.podd)}${dateCell(13, firstLevel.crd)}
     ${[0, 1, 2, 3, 4].map(i => cell(COL_CFA_DEFECT_FIRST + i, 'Cell', defects[i] || '')).join('')}
     ${LEVELS.map(level => buildLevelCells(level, row[level.key])).join('\n    ')}
     ${buildCalcCells(row)}
@@ -208,10 +208,10 @@ const dateSortKey = (date) => {
   return y && m && d ? `${y}${m.padStart(2, '0')}${d.padStart(2, '0')}` : String(date || '');
 };
 
-// Rows are written sorted by inspection date, then CFA name
+// DATE = latest T1QM validation date of the PO; rows sorted by that date, then CFA name
 export const exportCfaAlignmentExcel = (inputRows = [], filename = 'DEFECT_ALIGNMENT.xls') => {
   const rows = [...inputRows].sort((a, b) => (
-    dateSortKey(a.date).localeCompare(dateSortKey(b.date)) || String(a.cfaName).localeCompare(String(b.cfaName))
+    dateSortKey(a.validationDate || a.date).localeCompare(dateSortKey(b.validationDate || b.date)) || String(a.cfaName).localeCompare(String(b.cfaName))
   ));
   const lastRow = FIRST_DATA_ROW + rows.length - 1;
   const columns = CHAR_WIDTHS.map(w => `<Column ss:Width="${toPoints(w)}"/>`).join('\n   ');

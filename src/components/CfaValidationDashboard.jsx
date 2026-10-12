@@ -254,13 +254,13 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
         </div>
       </div>
 
-      {/* ── FILTER BAR: INSPECTION DATE MOVED TO LEFT SIDE ── */}
+      {/* ── FILTER BAR: T1QM VALIDATION DATE ON THE LEFT SIDE ── */}
       <div className={`w-full p-4 rounded-xl border flex flex-wrap items-center gap-3.5 transition-colors ${themeClasses.filterBar}`}>
-        
-        {/* 1. INSPECTION DATE (LEFT-MOST) */}
+
+        {/* 1. T1QM VALIDATION DATE (LEFT-MOST) */}
         <div className="min-w-[210px] flex-1">
           <label className={`block text-[10px] uppercase font-black mb-1 tracking-wider ml-1 ${themeClasses.subText}`}>
-            INSPECTION DATE
+            T1QM VALIDATION DATE
           </label>
           <DateRangePicker
             startDate={startDate}
