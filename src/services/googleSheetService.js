@@ -6,7 +6,7 @@ const SUMMARY_DATA_URL = 'https://docs.google.com/spreadsheets/d/1a-uVy2HfZlitzW
 // CFA uses the MASTER DATA AQL INSPECTION sheet — fetch by gid with the plain CSV export:
 // the GViz sheet-name lookup resolved to a different tab once a same-named tab appeared, and
 // GViz drops cells that don't fit a column's guessed type (e.g. 1,830 QTY INSPECTION values)
-const CFA_DATA_URL = 'https://docs.google.com/spreadsheets/d/1kr0Ae1b5m2cTTY_gKQ6_fIfDkFLoqiWr7RZssGxWF9s/export?format=csv&gid=1383031495';
+const CFA_DATA_URL = 'https://docs.google.com/spreadsheets/d/1kr0Ae1b5m2cTTY_gKQ6_fIfDkFLoqiWr7RZssGxWF9s/export?format=csv&gid=1623981080';
 
 export const fetchData = async () => {
   try {
