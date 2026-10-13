@@ -41,18 +41,52 @@ export const CFA_NAME_ALIASES = {
 // AQL INSPECTOR NAME spelling variants -> one name per CFA
 //   NELLI   = NELLI FATIMAH
 //   ALFINDA = ALFINDA DWI FIRMANSYAH
-//   FIRDAUS = FIRDAUS MAKANANA
+//   FIRDAUS = FIRDAUS MAKANANA (AQL also types it in full, misspelled "FIRDAUS MAKANAKA")
 //   SOFIA   = SOFIA PUTRI ANGGRAENI
 //   EVA JULIYANI (plain "EVA" in AQL is EVA JULIYANI, not EVA ARIYANI)
 //   AZIZAH  ("AZZIAH" is a typo; AZZI is a different CFA)
+//   MAGHFIROH = FIROH = VIROH
+//   INA     = ZULIA NUR RAHMA
+// The rebuilt AQL sheet mixes nicknames with full names; full names map back to the nickname.
 export const CFA_NAME_CANONICAL = {
   NELI: 'NELLI',
+  'NELLI FATIMAH': 'NELLI',
   ALFIN: 'ALFINDA',
+  'ALFINDA DWI FIRMANSYAH': 'ALFINDA',
   DAUS: 'FIRDAUS',
+  'FIRDAUS MAKANAKA': 'FIRDAUS',
+  'FIRDAUS MAKANANA': 'FIRDAUS',
+  // Plain "PUTRI" would also match T1QM "SOFIA PUTRI ANGGRAENI" as a whole word
+  PUTRI: 'PUTRI NAFSIANA',
   SOFI: 'SOFIA',
   SHOFI: 'SOFIA',
+  'SOFIA PUTRI ANGGRAENI': 'SOFIA',
   EVA: 'EVA JULIYANI',
-  AZZIAH: 'AZIZAH'
+  'EVA JULIANI': 'EVA JULIYANI',
+  AZZIAH: 'AZIZAH',
+  'NUR AZIZAH': 'AZIZAH',
+  FIROH: 'MAGHFIROH',
+  VIROH: 'MAGHFIROH',
+  'ZULIA NUR RAHMA': 'INA',
+  'DEWI INTAN HAPSARI': 'INTAN',
+  'DISKA AINNURRAHMA INDAHSARI': 'DISKA',
+  'WAKHIDAH APRINIANISMA': 'NISMA',
+  'AHDA SILVIA RIZKI': 'AHDA',
+  'ANINDYA AGUSTIANA': 'ANIN',
+  'AYU ISLAHIYAH': 'AYU',
+  'IDA NUR MALLA': 'IDA',
+  'IIN KHARISMA': 'IIN',
+  'IRFA AFIFATUS SOLIKAH': 'IRFA',
+  'LINA DUWI A': 'LINA',
+  'MAHDUM MUKAROMAH': 'MAHDUM',
+  'NOOR ROKHMAH': 'ROKHMAH',
+  'RISMA EKA ANGGRAENI': 'RISMA',
+  RISTIANA: 'RISTI',
+  'ROIS FATHUR ROHIM': 'ROIS',
+  'SINTIA NURUL HIDAYAH': 'SINTIA',
+  'UUN SEFTY WIDYA ASTUTI': 'UUN',
+  'YANWAR EFENDI': 'YANWAR',
+  'REKA ARIWIBOWO': 'REKA'
 };
 
 // Full CFA names confirmed by the team, used in the Excel export.
@@ -142,14 +176,19 @@ export const standardizeDefectName = (rawName) => {
 /**
  * Standardize Destination Category to REGULAR or CRITICAL
  */
+// "dd/mm/yyyy" -> sortable "yyyymmdd" ('' when it doesn't parse)
+const dateKey = (raw) => {
+  const [d, m, y] = String(raw || '').trim().split('/');
+  if (!d || !m || !y) return '';
+  return `${y.padStart(4, '0')}${m.padStart(2, '0')}${d.padStart(2, '0')}`;
+};
+
 // Latest of several "dd/mm/yyyy" dates, returned in the same format ('' when none parse)
 export const latestDate = (dates = []) => {
   let best = '';
   let bestKey = '';
   dates.forEach(raw => {
-    const [d, m, y] = String(raw || '').trim().split('/');
-    if (!d || !m || !y) return;
-    const key = `${y.padStart(4, '0')}${m.padStart(2, '0')}${d.padStart(2, '0')}`;
+    const key = dateKey(raw);
     if (key > bestKey) {
       bestKey = key;
       best = String(raw).trim();
@@ -333,6 +372,21 @@ export const buildCfaValidationDataset = (rawData = []) => {
     if (t1qmPartial !== null) {
       const byPartial = candidates.filter(idx => partialNumber(cfaRows[idx].partial) === t1qmPartial);
       if (byPartial.length > 0) candidates = byPartial;
+    }
+
+    // Re-inspected PO: AQL rows of the same PO can sit in different months. Keep the AQL
+    // inspection date nearest on/before the T1QM validation, else the nearest after it
+    const t1qmDay = dateKey(row.date);
+    if (t1qmDay && candidates.length > 1) {
+      const dated = candidates.map(idx => ({ idx, day: dateKey(cfaRows[idx].date) })).filter(c => c.day);
+      const before = dated.filter(c => c.day <= t1qmDay);
+      const pool = before.length > 0 ? before : dated;
+      if (pool.length > 0) {
+        const pick = before.length > 0
+          ? pool.reduce((a, c) => (c.day > a ? c.day : a), '')
+          : pool.reduce((a, c) => (c.day < a ? c.day : a), pool[0].day);
+        candidates = pool.filter(c => c.day === pick).map(c => c.idx);
+      }
     }
 
     const typeNormalized = String(row.type_inspection || '').trim().toUpperCase().replace(/\s+/g, '');
