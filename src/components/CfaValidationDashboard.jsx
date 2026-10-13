@@ -682,18 +682,17 @@ const CfaValidationDashboard = ({ rawData = [], onFilteredRowsChange }) => {
               </span>
             </div>
           </div>
-          <div className="h-[225px] w-full overflow-x-auto">
+          <div className="h-[300px] w-full overflow-x-auto">
             <ResponsiveContainer width="100%" minWidth={defectMatrixData.length * 56} height="100%">
               <BarChart data={defectMatrixData} margin={{ top: 20, right: 20, left: -20, bottom: 25 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={themeClasses.gridColor} />
                 <XAxis
-                  dataKey="cfaName"
-                  tickFormatter={formatShortCfaName}
-                  angle={-30}
+                  dataKey="cfaFullName"
+                  angle={-40}
                   textAnchor="end"
                   interval={0}
-                  height={50}
-                  tick={{ fontSize: 9.5, fontWeight: '700', fill: themeClasses.tickColor }}
+                  height={120}
+                  tick={{ fontSize: 9, fontWeight: '700', fill: themeClasses.tickColor }}
                 />
                 <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} allowDataOverflow tick={{ fontSize: 10, fontWeight: '700', fill: themeClasses.tickColor }} unit="%" />
                 <Tooltip

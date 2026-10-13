@@ -34,14 +34,19 @@ export const STANDARD_DEFECTS = [
 
 // AQL nickname -> words of the full name used in T1QM CFA NAME, for nicknames
 // that are not part of the full name itself
+// (a substring match is weaker, so "ANIS" inside "APRIANISMA" can't outrank NISMA)
 export const CFA_NAME_ALIASES = {
-  INA: ['ZULIA']
+  INA: ['ZULIA'],
+  NISMA: ['APRIANISMA', 'APRINIANISMA'],
+  NITA: ['YUNNITA'],
+  RISTI: ['RISTIANA']
 };
 
 // AQL INSPECTOR NAME spelling variants -> one name per CFA
 //   NELLI   = NELLI FATIMAH
 //   ALFINDA = ALFINDA DWI FIRMANSYAH
-//   FIRDAUS = FIRDAUS MAKANANA (AQL also types it in full, misspelled "FIRDAUS MAKANAKA")
+//   FIRDAUS = FIRDAUS MAKANAKA (older T1QM rows spell it "FIRDAUS MAKANANA")
+//   NITA    = YUNNITA SEPTIAN WAHYU NINGRUM
 //   SOFIA   = SOFIA PUTRI ANGGRAENI
 //   EVA JULIYANI (plain "EVA" in AQL is EVA JULIYANI, not EVA ARIYANI)
 //   AZIZAH  ("AZZIAH" is a typo; AZZI is a different CFA)
@@ -67,6 +72,10 @@ export const CFA_NAME_CANONICAL = {
   'NUR AZIZAH': 'AZIZAH',
   FIROH: 'MAGHFIROH',
   VIROH: 'MAGHFIROH',
+  MAGFIROH: 'MAGHFIROH',
+  'YUNNITA SEPTIAN WAHYU NINGRUM': 'NITA',
+  'ANITA WARDANI': 'ANITA',
+  'AHDA SILVIA': 'AHDA',
   'ZULIA NUR RAHMA': 'INA',
   'DEWI INTAN HAPSARI': 'INTAN',
   'DISKA AINNURRAHMA INDAHSARI': 'DISKA',
@@ -89,22 +98,40 @@ export const CFA_NAME_CANONICAL = {
   'REKA ARIWIBOWO': 'REKA'
 };
 
-// Full CFA names confirmed by the team, used in the Excel export.
-// Names not listed are taken from the T1QM CFA NAME column (see resolveCfaFullNames).
+// Full CFA names used in the Defect Matrix chart and the Excel export, taken from the
+// longest spelling found in the AQL / T1QM sheets.
+// Names not listed are taken from the T1QM CFA NAME column (see fullNameOf).
 export const CFA_FULL_NAMES = {
-  NELLI: 'NELLI FATIMAH',
+  AHDA: 'AHDA SILVIA',
   ALFINDA: 'ALFINDA DWI FIRMANSYAH',
-  FIRDAUS: 'FIRDAUS MAKANANA',
-  SOFIA: 'SOFIA PUTRI ANGGRAENI',
-  'EVA JULIYANI': 'EVA JULIYANI',
-  AZIZAH: 'NUR AZIZAH',
+  ANIN: 'ANINDYA AGUSTIANA',
+  ANITA: 'ANITA WARDANI',
+  AYU: 'AYU ISLAHIYAH',
   DISKA: 'DISKA AINURRAHMA',
+  'EVA JULIYANI': 'EVA JULIYANI',
+  FIRDAUS: 'FIRDAUS MAKANAKA',
+  IIN: 'IIN KHARISMA',
   INA: 'ZULIA NOOR ROHMAH',
-  INTAN: 'DEWI INTAN HAPSARI'
+  INTAN: 'DEWI INTAN HAPSARI',
+  IRFA: 'IRFA AFIFATUS SOLIKAH',
+  LINA: 'LINA DWI',
+  MAHDUM: 'MAHDUM MUKAROMAH',
+  NELLI: 'NELLI FATIMAH',
+  NISMA: 'WAKHIDAH APRIANISMA',
+  NITA: 'YUNNITA SEPTIAN WAHYU NINGRUM',
+  RISMA: 'RISMA EKA ANGGRAENI',
+  RISTI: 'RISTIANA',
+  ROIS: 'ROIS FATHUR ROHIM',
+  ROKHMAH: 'NOOR ROKHMAH',
+  SINTIA: 'SINTIA NURUL HIDAYAH',
+  SOFIA: 'SOFIA PUTRI ANGGRAENI',
+  TRIA: 'TRIA HAPSARI',
+  YANWAR: 'YANWAR EFENDI'
 };
 
-// AQL INSPECTOR NAME values that are not CFAs: test entries and inspectors outside the CFA team
-export const EXCLUDED_CFA_NAMES = ['CMA TEST', 'AGIS', 'REKA', 'HILHAM', 'AZZI'];
+// AQL INSPECTOR NAME values that are not CFAs: test entries and inspectors outside the CFA team.
+// UUN, IDA and AZIZAH moved up to PSI LV.2, so their AQL inspections are left out too.
+export const EXCLUDED_CFA_NAMES = ['CMA TEST', 'AGIS', 'REKA', 'HILHAM', 'AZZI', 'UUN', 'IDA', 'AZIZAH'];
 
 /**
  * Split AQL INSPECTOR NAME into individual, canonical CFA names.
@@ -520,7 +547,8 @@ export const buildCfaValidationDataset = (rawData = []) => {
       const full = normalizeKey(rec.cfa_name);
       if (!full || full === '-') return;
       row.cfaNames.forEach(nick => {
-        if (nameScore(full, nick) === 0) return;
+        // Whole-word matches only: "ANIS" is a substring of "WAKHIDAH APRIANISMA"
+        if (nameScore(full, nick) < 2) return;
         if (!votes.has(nick)) votes.set(nick, new Map());
         const counts = votes.get(nick);
         counts.set(full, (counts.get(full) || 0) + 1);
@@ -536,7 +564,8 @@ export const buildCfaValidationDataset = (rawData = []) => {
       .sort((a, b) => startsWithNick(b[0]) - startsWithNick(a[0]) || b[1] - a[1] || b[0].length - a[0].length)[0][0];
   };
   mergedDataset.forEach(row => {
-    row.cfaFullName = row.cfaNames.map(fullNameOf).join(', ') || row.cfaName;
+    row.cfaFullNames = row.cfaNames.map(fullNameOf);
+    row.cfaFullName = row.cfaFullNames.join(', ') || row.cfaName;
   });
 
   return mergedDataset.filter(row => row.hasT1qmValidation);
@@ -650,6 +679,7 @@ export const calculateCfaValidationMetrics = (dataset = [], filters = {}) => {
       if (!cfaGroupMap.has(cfa)) {
         cfaGroupMap.set(cfa, {
           cfaName: cfa,
+          cfaFullName: row.cfaFullNames[row.cfaNames.indexOf(cfa)] || cfa,
           t1_insp: 0, t1_def: 0,
           t2_insp: 0, t2_def: 0,
           t3_insp: 0, t3_def: 0,
@@ -766,6 +796,7 @@ export const calculateCfaValidationMetrics = (dataset = [], filters = {}) => {
     const matchRate = total > 0 ? Math.round((item.matchFreq / total) * 100) : 0;
     return {
       cfaName: item.cfaName,
+      cfaFullName: item.cfaFullName,
       validatedRows: item.validatedRows,
       matchCount: item.matchFreq,
       mismatchCount: item.mismatchFreq,
