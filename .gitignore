@@ -25,3 +25,5 @@ dist-ssr
 
 # Local reference spreadsheet
 DEFECT ALIGNMENT.xlsx
+
+.claude/settings.local.json
