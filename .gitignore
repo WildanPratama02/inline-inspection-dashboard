@@ -26,4 +26,7 @@ dist-ssr
 # Local reference spreadsheet
 DEFECT ALIGNMENT.xlsx
 
+# PSI API — kredensial DB m100 (jangan dipublish)
+.env
+
 .claude/settings.local.json

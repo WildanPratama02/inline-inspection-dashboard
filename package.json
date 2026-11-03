@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "serve -s dist -l 5173"
+    "start": "serve -s dist -l 5173",
+    "psi-server": "node server/index.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.4",
@@ -17,6 +18,7 @@
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "papaparse": "^5.5.3",
+    "pg": "^8.23.1",
     "postcss": "^8.5.12",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

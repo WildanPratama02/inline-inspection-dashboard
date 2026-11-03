@@ -1,5 +1,7 @@
 import axios from 'axios';
 import Papa from 'papaparse';
+import { fetchPsiRows } from './psiApiService';
+import { getInspectorType } from '../utils/dataUtils';
 
 const RAW_DATA_URL = 'https://docs.google.com/spreadsheets/d/1a-uVy2HfZlitzW1kJ-DGoVisnKbIVKeFZRahH4QwL6I/export?format=csv&gid=1063163792';
 const SUMMARY_DATA_URL = 'https://docs.google.com/spreadsheets/d/1a-uVy2HfZlitzW1kJ-DGoVisnKbIVKeFZRahH4QwL6I/export?format=csv&gid=445107403';
@@ -22,6 +24,24 @@ export const fetchData = async () => {
       transformHeader: (h) => h.toLowerCase().trim().replace(/\s+/g, '_'),
       transform: (v) => v.trim()
     }).data;
+
+    // ── PSI LV.2 dari database m100 (sistem mobile-100-inspection v0.1, tabel submissions) ──
+    // Diambil lewat API server lokal (server/index.mjs).
+    // Jika API tidak bisa diakses → fallback ke data PSI dari spreadsheet lama.
+    let psiApiRows = [];
+    let psiApiOk = false;
+    try {
+      psiApiRows = await fetchPsiRows('PSI LV.2');
+      psiApiOk = true;
+    } catch (e) {
+      console.warn('PSI API (m100 DB) tidak tersedia — fallback ke Google Sheets untuk PSI LV.2:', e.message);
+    }
+
+    if (psiApiOk) {
+      // Buang baris PSI LV.2 dari sheet agar tidak dihitung dobel
+      rawData = rawData.filter(row => getInspectorType(row.inspector, row) !== 'PSI LV.2');
+      if (psiApiRows.length) rawData = [...psiApiRows, ...rawData];
+    }
 
     const summaryData = Papa.parse(summaryRes.data, {
       header: true,
