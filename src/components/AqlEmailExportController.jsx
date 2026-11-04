@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
 import { toJpeg } from 'html-to-image';
-import { findKey, parseNumber } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, parseNumber } from '../utils/dataUtils';
 import AqlEmailExportView from './AqlEmailExportView';
 
 /**
@@ -29,17 +29,18 @@ const fetchImageAsDataUri = async (proxyUrl) => {
 const computeDefectImagesForFactory = async (fData, rawData) => {
   if (!fData || fData.length === 0) return [];
   const firstItem = rawData[0] || {};
+  const keyProbe = buildKeyProbe(fData, rawData);
   const nameKeys = [];
   const qtyKeys = [];
   const imageUrlKeyGroups = [];
 
   for (let i = 1; i <= 25; i++) {
-    nameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-    qtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    nameKeys[i] = findKey(keyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+    qtyKeys[i] = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
 
     const imageSlotStart = ((i - 1) * 3) + 1;
     imageUrlKeyGroups[i] = [0, 1, 2]
-      .map((offset) => findKey(firstItem, `link${imageSlotStart + offset}`, `photo${imageSlotStart + offset}`))
+      .map((offset) => findKey(keyProbe, `link${imageSlotStart + offset}`, `photo${imageSlotStart + offset}`))
       .filter(Boolean);
   }
 

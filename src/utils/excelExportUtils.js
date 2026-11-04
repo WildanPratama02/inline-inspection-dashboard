@@ -1,4 +1,4 @@
-import { findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, findKey, parseNumber, parsePercent } from './dataUtils.js';
 
 const escapeXml = (unsafe) => {
   return String(unsafe || '')
@@ -514,10 +514,12 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   const inspectorKey = findKey(firstItem, 'inspector', 'inspector_name', 'name') || 'inspector';
 
   // Find all defect slot keys (Defect 1, Qty defect 1, Defect 2, Qty defect 2 ... up to max slots e.g. 25)
+  // Probe gabungan seluruh baris — baris DB m100 hanya punya key slot sebanyak findings-nya
+  const defectKeyProbe = buildKeyProbe(dataset, rawData);
   const defectSlots = [];
   for (let i = 1; i <= 25; i++) {
-    const nameK = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-    const qtyK = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    const nameK = findKey(defectKeyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+    const qtyK = findKey(defectKeyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
     if (nameK || qtyK) {
       defectSlots.push({
         index: i,
@@ -543,10 +545,10 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   const defectNameKeys = [];
   for (let i = 1; i <= 25; i++) {
     qtyDefectKeys.push(
-      findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`) || `qty_defect_${i}`
+      findKey(defectKeyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`) || `qty_defect_${i}`
     );
     defectNameKeys.push(
-      findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`) || `defect_name_${i}`
+      findKey(defectKeyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`) || `defect_name_${i}`
     );
   }
 

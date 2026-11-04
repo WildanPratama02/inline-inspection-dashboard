@@ -19,6 +19,7 @@ import { fetchData } from '../services/googleSheetService';
 import {
   normalizeKey,
   findKey,
+  buildKeyProbe,
   parseNumber,
   toLocalISODate,
   formatDateStr,
@@ -169,11 +170,14 @@ const Dashboard = () => {
     });
 
     // Also pre-find defect keys for dynamic defect filter
+    // (probe gabungan seluruh baris — baris DB m100 hanya punya key slot
+    // sebanyak findings-nya, baris pertama tidak mewakili seluruh slot)
+    const keyProbe = buildKeyProbe(data.raw);
     const defectNameKeys = [];
     const defectQtyKeys = [];
     for (let i = 1; i <= 25; i++) {
-      defectNameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-      defectQtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+      defectNameKeys[i] = findKey(keyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+      defectQtyKeys[i] = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
     }
     const inspectorKey = filterKeys['inspector'];
   const typeInspectionKey = findKey(firstItem, 'type_inspection', 'type inspection');
@@ -319,9 +323,10 @@ const Dashboard = () => {
     const defectNameKeys = [];
     const defectQtyKeys = [];
     if (filters.defectName && filters.defectName.length > 0) {
+      const keyProbe = buildKeyProbe(data.raw);
       for (let i = 1; i <= 25; i++) {
-        defectNameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-        defectQtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+        defectNameKeys[i] = findKey(keyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+        defectQtyKeys[i] = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
       }
     }
     const inspectorKeyFD = findKey(firstItem, 'inspector');

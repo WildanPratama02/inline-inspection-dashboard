@@ -5,7 +5,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, LabelList
 } from 'recharts';
-import { findKey, parseNumber } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, parseNumber } from '../utils/dataUtils';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -72,10 +72,12 @@ const SummaryView = ({ data, rawData, headerMetadata }) => {
     const aGradeKey = findKey(firstItem, 'total_a_grade', 'total a grade', 'a_grade', 'a grade', 'agrade', 'a-grade', 'grade_a', 'grade a') || 'a_grade';
     const bGradeKey = findKey(firstItem, 'avg b grade', 'avg_b_grade', 'b_grade') || 'b_grade';
 
-    // Pre-find defect qty keys
+    // Pre-find defect qty keys (gabungkan key seluruh baris — baris DB m100
+    // hanya punya key slot sebanyak findings-nya)
+    const keyProbe = buildKeyProbe(data, rawData);
     const defectQtyKeys = [];
     for (let i = 1; i <= 25; i++) {
-      const k = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`);
+      const k = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`);
       if (k) defectQtyKeys.push(k);
     }
 

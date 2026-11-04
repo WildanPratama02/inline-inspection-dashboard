@@ -6,7 +6,7 @@ import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
 import CfaSeverityChart from './CfaSeverityChart';
 import CfaInspectorChart from './CfaInspectorChart';
-import { findKey, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
@@ -19,6 +19,9 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     }
 
     const firstItem = rawData[0] || {};
+    // Probe key gabungan — slot key tidak ada di semua baris (baris DB m100
+    // hanya punya key slot sebanyak findings-nya)
+    const keyProbe = buildKeyProbe(data, rawData);
 
     // ── Column keys ──
     const qtyInsKey = findKey(firstItem, 'qty_inspection', 'qty inspection');
@@ -46,9 +49,9 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     const classificationKeys = [];
     const defectNameKeys = [];
     for (let i = 1; i <= 25; i++) {
-      qtyDefectKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
-      classificationKeys[i] = findKey(firstItem, `classification_${i}`, `classification ${i}`, `clasification_${i}`, `clasification ${i}`);
-      defectNameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+      qtyDefectKeys[i] = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+      classificationKeys[i] = findKey(keyProbe, `classification_${i}`, `classification ${i}`, `clasification_${i}`, `clasification ${i}`);
+      defectNameKeys[i] = findKey(keyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
     }
 
     // ── Aggregation ──
@@ -265,19 +268,20 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     const imageSelections = {};
     const displayNames = {};
     const firstItem = data[0] || rawData[0] || {};
+    const keyProbe = buildKeyProbe(data, rawData);
 
     const nameKeys = [];
     const qtyKeys = [];
     const imageUrlKeyGroups = [];
     for (let i = 1; i <= 25; i++) {
-      nameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-      qtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+      nameKeys[i] = findKey(keyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+      qtyKeys[i] = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
 
       const imageSlotStart = ((i - 1) * 3) + 1;
       imageUrlKeyGroups[i] = [0, 1, 2]
         .map((offset) => {
           const slot = imageSlotStart + offset;
-          return findKey(firstItem, `link${slot}`, `photo${slot}`);
+          return findKey(keyProbe, `link${slot}`, `photo${slot}`);
         })
         .filter(Boolean);
     }
