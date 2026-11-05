@@ -3,7 +3,7 @@ import {
   BarChart, Bar, Line, ComposedChart, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { findKey, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -147,9 +147,10 @@ export const compute3rdPartyStats = (data, rawData) => {
 
   const qtyDefectKeys = [];
   const classificationKeys = [];
+  const defectKeyProbe = buildKeyProbe(data, rawData);
   for (let i = 1; i <= 25; i++) {
-    qtyDefectKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
-    classificationKeys[i] = findKey(firstItem, `classification_${i}`, `classification ${i}`, `clasification_${i}`, `clasification ${i}`);
+    qtyDefectKeys[i] = findKey(defectKeyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    classificationKeys[i] = findKey(defectKeyProbe, `classification_${i}`, `classification ${i}`, `clasification_${i}`, `clasification ${i}`);
   }
 
   let totalInspection = 0;
@@ -243,17 +244,18 @@ export const compute3rdPartyStats = (data, rawData) => {
 export const computeTopDefects = (data, rawData) => {
   if (!data || data.length === 0) return [];
   const firstItem = rawData[0] || {};
+  const keyProbe = buildKeyProbe(data, rawData);
   const nameKeys = [];
   const qtyKeys = [];
   const imageUrlKeyGroups = [];
 
   for (let i = 1; i <= 25; i++) {
-    nameKeys[i] = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-    qtyKeys[i] = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    nameKeys[i] = findKey(keyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+    qtyKeys[i] = findKey(keyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
 
     const imageSlotStart = ((i - 1) * 3) + 1;
     imageUrlKeyGroups[i] = [0, 1, 2]
-      .map(offset => findKey(firstItem, `link${imageSlotStart + offset}`, `photo${imageSlotStart + offset}`))
+      .map(offset => findKey(keyProbe, `link${imageSlotStart + offset}`, `photo${imageSlotStart + offset}`))
       .filter(Boolean);
   }
 
