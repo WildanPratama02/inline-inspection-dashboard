@@ -1,7 +1,7 @@
 import DateRangePicker from './DateRangePicker';
 import MultiSelect from './MultiSelect';
 
-const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onExport, onExportPDF, onExportPsiEmail, onExportExcel, onSummary, viewMode, activeTab, onTabChange }) => {
+const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onExport, onExportPDF, onExportPsiEmail, onExportExcel, onSummary, viewMode, activeTab, onTabChange, isSupportingReport = false, onSupportingReport }) => {
   return (
     <div className="flex flex-col gap-0">
       {/* Row 0: Menu Tabs */}
@@ -74,6 +74,18 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
         {/* Spacer + action buttons pushed to right */}
         <div className="hidden lg:block flex-1" />
         <div className="ml-auto flex flex-wrap items-center gap-2 pb-1">
+          {activeTab === 'PSI LV.2' && onSupportingReport && (
+            <button
+              onClick={onSupportingReport}
+              title={isSupportingReport ? 'Back to PSI LV.2 report (m100 database)' : 'PSI LV.2 report from AppSheet spreadsheet'}
+              className={`font-bold py-1.5 px-5 rounded transition-all shadow-lg uppercase text-[10px] text-white ${isSupportingReport
+                ? 'bg-cyan-500 hover:bg-cyan-400 ring-2 ring-white/60'
+                : 'bg-cyan-700 hover:bg-cyan-600'
+                }`}
+            >
+              {isSupportingReport ? '← PSI LV.2 Report' : 'Supporting Report'}
+            </button>
+          )}
           <button
             onClick={onSummary}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-5 rounded transition-all shadow-lg uppercase text-[10px]"
@@ -109,7 +121,7 @@ const FilterPanel = ({ filters, options, onFilterChange, onDateRangeChange, onEx
         {/* Title */}
         <div className="flex items-center gap-2 mr-2 shrink-0 pb-1">
           <h1 className="text-base font-bold uppercase tracking-wide whitespace-nowrap">
-            {activeTab === 'CFA' ? 'CFA REPORT' : activeTab === 'CFA VALIDATION' ? 'CFA VALIDATION BY T1QM' : activeTab === '3rd Party' ? 'AQL 3rd Party' : activeTab === 'T1QM' ? 'T1QM' : activeTab === 'SUMMARY RFT' ? 'Summary RFT' : activeTab === 'PSI LV.2' ? 'PSI LV.2' : activeTab === 'PSI LV.1' ? 'PSI LV.1' : 'QUALITY INSPECTION PERFORMANCE'}
+            {activeTab === 'CFA' ? 'CFA REPORT' : activeTab === 'CFA VALIDATION' ? 'CFA VALIDATION BY T1QM' : activeTab === '3rd Party' ? 'AQL 3rd Party' : activeTab === 'T1QM' ? 'T1QM' : activeTab === 'SUMMARY RFT' ? 'Summary RFT' : activeTab === 'PSI LV.2' ? (isSupportingReport ? 'Supporting Report PSI LV.2' : 'PSI LV.2') : activeTab === 'PSI LV.1' ? 'PSI LV.1' : 'QUALITY INSPECTION PERFORMANCE'}
           </h1>
 
         </div>

@@ -37,6 +37,12 @@ export const fetchData = async () => {
       console.warn('PSI API (m100 DB) tidak tersedia — fallback ke Google Sheets untuk PSI LV.2:', e.message);
     }
 
+    // Baris PSI LV.2 dari spreadsheet (laporan AppSheet) — sumber halaman
+    // SUPPORTING REPORT PSI LV.2. Disimpan terpisah dari data utama (m100 DB).
+    const psiSupportRows = rawData
+      .filter(row => getInspectorType(row.inspector, row) === 'PSI LV.2')
+      .map(row => ({ ...row, source: 'SHEET' }));
+
     if (psiApiOk) {
       // Buang baris PSI LV.2 dari sheet agar tidak dihitung dobel
       rawData = rawData.filter(row => getInspectorType(row.inspector, row) !== 'PSI LV.2');
@@ -134,9 +140,10 @@ export const fetchData = async () => {
       rawData = [...rawData, ...cfaData];
     }
 
-    return { rawData, summaryData };
+    // psiFromDb: true jika PSI LV.2 di rawData berasal dari m100 DB (bukan fallback sheet)
+    return { rawData, summaryData, psiSupportRows, psiFromDb: psiApiOk };
   } catch (error) {
     console.error('Error fetching Google Sheets data:', error);
-    return { rawData: [], summaryData: [] };
+    return { rawData: [], summaryData: [], psiSupportRows: [], psiFromDb: false };
   }
 };

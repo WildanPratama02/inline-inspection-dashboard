@@ -33,7 +33,18 @@ import {
 import { exportToPDF } from '../utils/exportPDF';
 
 const Dashboard = () => {
-  const [data, setData] = useState({ raw: [], summary: [] });
+  const [baseData, setData] = useState({ raw: [], summary: [], psiSupport: [], psiFromDb: false });
+  // PSI LV.2 data source: 'db' = m100 database (default report),
+  // 'support' = AppSheet spreadsheet (SUPPORTING REPORT PSI LV.2)
+  const [psiSource, setPsiSource] = useState('db');
+  const data = useMemo(() => {
+    if (psiSource !== 'support' || !baseData.psiFromDb) return baseData;
+    // Swap m100 PSI LV.2 rows for the spreadsheet PSI LV.2 rows
+    return {
+      ...baseData,
+      raw: [...baseData.psiSupport, ...baseData.raw.filter(r => r.source !== 'M100DB')]
+    };
+  }, [baseData, psiSource]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('dashboard');
   const [activeTab, setActiveTab] = useState('PSI LV.2');
@@ -94,7 +105,12 @@ const Dashboard = () => {
   useEffect(() => {
     const loadData = async () => {
       const result = await fetchData();
-      setData({ raw: result.rawData, summary: result.summaryData });
+      setData({
+        raw: result.rawData,
+        summary: result.summaryData,
+        psiSupport: result.psiSupportRows || [],
+        psiFromDb: !!result.psiFromDb
+      });
       rawDataRef.current = result.rawData;
 
       // Setelah data dimuat, set default tanggal ke hari ini
@@ -134,8 +150,9 @@ const Dashboard = () => {
 
       // Build dynamic inspector-type map from Google Sheet type_inspection column
       const dynamicMap = {};
-      if (result.rawData && result.rawData.length > 0) {
-        result.rawData.forEach(item => {
+      const typeSourceRows = [...(result.rawData || []), ...(result.psiSupportRows || [])];
+      if (typeSourceRows.length > 0) {
+        typeSourceRows.forEach(item => {
           const name = (item.inspector || '').trim().toUpperCase();
           const typeVal = (item.type_inspection || item.inspection_type || '').trim().toUpperCase();
           if (name && typeVal && typeVal !== '' && typeVal !== '-' && !dynamicMap[name]) {
@@ -528,17 +545,15 @@ const Dashboard = () => {
     }));
   };
 
-  const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
-
-    // Find default date to reset back to initial state
+  // Default date for a row set: today if it has data today, else its latest date
+  const pickDefaultDate = (rows) => {
     let defaultDate = 'ALL';
-    if (newTab !== 'T1QM' && data.raw && data.raw.length > 0) {
-      const firstItem = data.raw[0];
+    if (rows && rows.length > 0) {
+      const firstItem = rows[0];
       const dateKey = Object.keys(firstItem).find(k => k.toLowerCase().includes('date'));
       if (dateKey) {
         const today = toLocalISODate(new Date());
-        const allDates = data.raw
+        const allDates = rows
           .map(item => {
             const ds = item[dateKey];
             if (!ds) return null;
@@ -552,10 +567,13 @@ const Dashboard = () => {
           .filter(Boolean);
         const uniqueDates = [...new Set(allDates)].sort();
         const hasToday = uniqueDates.includes(today);
-        defaultDate = hasToday ? today : uniqueDates[uniqueDates.length - 1];
+        defaultDate = (hasToday ? today : uniqueDates[uniqueDates.length - 1]) || 'ALL';
       }
     }
+    return defaultDate;
+  };
 
+  const resetFilters = (defaultDate) => {
     setFilters({
       startDate: defaultDate,
       endDate: defaultDate,
@@ -568,6 +586,24 @@ const Dashboard = () => {
       typeInspection: [],
       defectName: []
     });
+  };
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    // Supporting report only exists for PSI LV.2 — any tab change returns to the m100 source
+    setPsiSource('db');
+    resetFilters(newTab === 'T1QM' ? 'ALL' : pickDefaultDate(baseData.raw));
+  };
+
+  // Toggle PSI LV.2 between the m100 report and the AppSheet supporting report
+  const handleSupportingReport = () => {
+    const nextSource = psiSource === 'support' ? 'db' : 'support';
+    setPsiSource(nextSource);
+    setViewMode('dashboard');
+    const psiRows = nextSource === 'support'
+      ? baseData.psiSupport
+      : baseData.raw.filter(r => resolveInspectorType(r.inspector, r) === 'PSI LV.2');
+    resetFilters(pickDefaultDate(psiRows));
   };
 
   if (loading) return <div className="flex items-center justify-center h-screen text-2xl">LOADING DASHBOARD...</div>;
@@ -583,6 +619,8 @@ const Dashboard = () => {
           onDateRangeChange={handleDateRangeChange}
           activeTab={activeTab}
           onTabChange={handleTabChange}
+          isSupportingReport={psiSource === 'support'}
+          onSupportingReport={handleSupportingReport}
           onExportPsiEmail={() => {
             if (activeTab === '3rd Party') {
               setIsExportingAqlEmail(true);
@@ -602,11 +640,12 @@ const Dashboard = () => {
           onExportExcel={() => {
             if (activeTab === 'CFA VALIDATION') {
               const stamp = new Date().toISOString().slice(0, 10);
-              exportCfaAlignmentExcel(cfaValidationRowsRef.current, `DEFECT_ALIGNMENT_${stamp}.xls`);
+              exportCfaAlignmentExcel(cfaValidationRowsRef.current, `DEFECT_ALIGNMENT_${stamp}.xlsx`);
             } else if (activeTab === 'SUMMARY RFT') {
-              exportToExcelRFT(tabFilteredData, data.raw, resolveInspectorType, 'Summary_RFT_Report.xls');
+              exportToExcelRFT(tabFilteredData, data.raw, resolveInspectorType, 'Summary_RFT_Report.xlsx');
             } else {
-              const filename = `Inspection_Detail_${activeTab ? activeTab.replace(/\s+/g, '_') : 'Report'}.xls`;
+              const supportSuffix = psiSource === 'support' && activeTab === 'PSI LV.2' ? '_Supporting' : '';
+              const filename = `Inspection_Detail_${activeTab ? activeTab.replace(/\s+/g, '_') : 'Report'}${supportSuffix}.xlsx`;
               exportToExcelDetail(tabFilteredData, data.raw, resolveInspectorType, activeTab, filename, filters.defectName);
             }
           }}
