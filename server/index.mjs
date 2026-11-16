@@ -6,6 +6,7 @@
 //   GET /api/psi/rows?level=lvl2|lvl1|all  → rows siap pakai untuk dashboard
 //   GET /api/psi/health                    → cek status server & DB
 //   GET /photos/<object_key>               → file foto defect dari PHOTO_DIR
+//   GET /appsheet-img/template/gettablefileurl?... → proxy foto AppSheet (spreadsheet)
 //   (static)                               → dist/ build frontend (production)
 import http from 'node:http';
 import path from 'node:path';
@@ -227,7 +228,14 @@ function tryServe(pathname, res) {
   if (!file.startsWith(DIST)) return false;
   try {
     if (fs.statSync(file).isFile()) {
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+      // index.html must always be revalidated so a new build (new hashed
+      // bundle names) reaches the browser on a normal refresh; hashed files
+      // under /assets/ never change and can be cached long-term.
+      const isHashedAsset = /[\\/]assets[\\/]/.test(file) && /-[A-Za-z0-9_-]{6,}\.(js|css)$/.test(file);
+      res.writeHead(200, {
+        'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+        'Cache-Control': isHashedAsset ? 'public, max-age=31536000, immutable' : 'no-cache',
+      });
       fs.createReadStream(file).pipe(res);
       return true;
     }
@@ -252,6 +260,32 @@ function servePhoto(urlPath, res) {
     'Cache-Control': 'public, max-age=31536000, immutable',
   });
   fs.createReadStream(full).pipe(res);
+}
+
+// Proxy foto AppSheet (laporan spreadsheet / SUPPORTING REPORT PSI LV.2).
+// Sama dengan proxy `/appsheet-img` di vite.config.js, supaya gambar tetap
+// tampil saat dashboard di-serve server ini (production). Hanya endpoint
+// file AppSheet yang diteruskan — bukan proxy terbuka.
+const APPSHEET_ORIGIN = 'https://www.appsheet.com';
+const APPSHEET_ALLOWED_PATH = '/template/gettablefileurl';
+async function proxyAppsheetImage(url, res) {
+  const upstreamPath = url.pathname.replace(/^\/appsheet-img/, '');
+  if (upstreamPath !== APPSHEET_ALLOWED_PATH) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
+    return;
+  }
+  const upstream = await fetch(`${APPSHEET_ORIGIN}${upstreamPath}${url.search}`, { redirect: 'follow' });
+  if (!upstream.ok) {
+    res.writeHead(upstream.status, { 'Content-Type': 'text/plain' }).end('AppSheet image unavailable');
+    return;
+  }
+  const body = Buffer.from(await upstream.arrayBuffer());
+  res.writeHead(200, {
+    'Content-Type': upstream.headers.get('content-type') || 'image/jpeg',
+    'Content-Length': body.length,
+    'Cache-Control': 'public, max-age=86400',
+  });
+  res.end(body);
 }
 
 // ── HTTP server ──
@@ -285,6 +319,7 @@ const server = http.createServer(async (req, res) => {
 
     // 2) Foto defect
     if (pathname.startsWith('/photos/')) { servePhoto(pathname, res); return; }
+    if (pathname.startsWith('/appsheet-img/')) { await proxyAppsheetImage(url, res); return; }
 
     // 3) Static dist (production: jalankan server ini, bukan `serve`)
     if (tryServe(pathname, res)) return;

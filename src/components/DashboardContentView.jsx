@@ -6,7 +6,7 @@ import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
 import CfaSeverityChart from './CfaSeverityChart';
 import CfaInspectorChart from './CfaInspectorChart';
-import { buildKeyProbe, findKey, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, isUsablePhotoUrl, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
@@ -296,7 +296,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
         const name = item[nameKey];
         const qty = parseNumber(item[qtyKey]);
-        const url = imageUrlKeys.map((key) => item[key]).find((value) => value && value !== '-');
+        const url = imageUrlKeys.map((key) => item[key]).find(isUsablePhotoUrl);
 
         if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
           const displayName = name.trim();

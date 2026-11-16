@@ -283,3 +283,14 @@ export const getInspectorType = (inspectorName, item) => {
   const normalized = String(nameStr).trim().toUpperCase();
   return INSPECTOR_TYPE_MAP[normalized] || null;
 };
+
+// A defect photo value is usable when it is non-empty and not a placeholder.
+// AppSheet spreadsheet rows fill every link{n} column with a file URL even when
+// no photo was taken — those end in an empty `fileName=` and must be skipped.
+export const isUsablePhotoUrl = (value) => {
+  if (!value) return false;
+  const str = String(value).trim();
+  if (!str || str === '-') return false;
+  if (/[?&]fileName=(&|$)/i.test(str)) return false;
+  return true;
+};
