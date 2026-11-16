@@ -1,3 +1,4 @@
+import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 // Export the CFA vs T1QM validation rows in the layout of the DEFECT ALIGNMENT FINAL sheet
 // (SpreadsheetML, same approach as excelExportUtils.js).
 
@@ -209,7 +210,7 @@ const dateSortKey = (date) => {
 };
 
 // DATE = latest T1QM validation date of the PO; rows sorted by that date, then CFA name
-export const exportCfaAlignmentExcel = (inputRows = [], filename = 'DEFECT_ALIGNMENT.xls') => {
+export const exportCfaAlignmentExcel = (inputRows = [], filename = 'DEFECT_ALIGNMENT.xlsx') => {
   const rows = [...inputRows].sort((a, b) => (
     dateSortKey(a.validationDate || a.date).localeCompare(dateSortKey(b.validationDate || b.date)) || String(a.cfaName).localeCompare(String(b.cfaName))
   ));
@@ -238,13 +239,7 @@ ${buildHeaderRows()}${rows.map(buildDataRow).join('')}  </Table>
  </Worksheet>
 </Workbook>`;
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Save as a real .xlsx — SpreadsheetML in a .xls file triggers Excel's
+  // "file format and extension don't match" warning
+  downloadSpreadsheetMlAsXlsx(xml, filename);
 };
