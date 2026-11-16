@@ -62,6 +62,23 @@ export const findKey = (item, ...searchTerms) => {
   return null;
 };
 
+// Gabungkan semua key unik dari kumpulan baris menjadi satu objek probe.
+// Diperlukan karena key slot (defect_name_1..25, link1..75, dst.) tidak ada di
+// semua baris — baris dari DB m100 hanya punya key slot sebanyak findings-nya,
+// sehingga resolve key dari baris pertama saja (firstItem) membuat slot 2+ tidak
+// terbaca. Sheet Google memiliki semua kolom di setiap baris jadi tidak terdampak.
+export const buildKeyProbe = (...rowSets) => {
+  const probe = {};
+  rowSets.forEach((rows) => {
+    (rows || []).forEach((row) => {
+      if (row && typeof row === 'object') {
+        Object.keys(row).forEach((k) => { probe[k] = ''; });
+      }
+    });
+  });
+  return probe;
+};
+
 export const getT1qmStatusCounts = (rows = []) => {
   const counts = { pass: 0, fail: 0, unknown: 0 };
 
@@ -265,4 +282,15 @@ export const getInspectorType = (inspectorName, item) => {
   if (!nameStr) return null;
   const normalized = String(nameStr).trim().toUpperCase();
   return INSPECTOR_TYPE_MAP[normalized] || null;
+};
+
+// A defect photo value is usable when it is non-empty and not a placeholder.
+// AppSheet spreadsheet rows fill every link{n} column with a file URL even when
+// no photo was taken — those end in an empty `fileName=` and must be skipped.
+export const isUsablePhotoUrl = (value) => {
+  if (!value) return false;
+  const str = String(value).trim();
+  if (!str || str === '-') return false;
+  if (/[?&]fileName=(&|$)/i.test(str)) return false;
+  return true;
 };

@@ -1,4 +1,5 @@
-import { findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 
 const escapeXml = (unsafe) => {
   return String(unsafe || '')
@@ -9,7 +10,7 @@ const escapeXml = (unsafe) => {
     .replace(/'/g, '&apos;');
 };
 
-export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, filename = 'Summary_RFT_Export.xls') => {
+export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, filename = 'Summary_RFT_Export.xlsx') => {
   const dataset = data && data.length > 0 ? data : rawData || [];
   const firstItem = dataset[0] || (rawData && rawData[0]) || {};
 
@@ -243,7 +244,7 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
       const totalDefectVal = totalDefectKey ? parseNumber(item[totalDefectKey]) : 0;
 
       let rftVal = null;
-      if (type === 'PSI LV.1' || type === 'PSI LV.2') {
+      if (cat.type === 'PSI LV.1' || cat.type === 'PSI LV.2') {
         if (qtyCheckingVal > 0) {
           rftVal = (totalAGradeVal / qtyCheckingVal) * 100;
         } else {
@@ -480,15 +481,9 @@ export const exportToExcelRFT = (data = [], rawData = [], resolveInspectorType, 
 
   xml += `</Workbook>`;
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Save as a real .xlsx — SpreadsheetML in a .xls file triggers Excel's
+  // "file format and extension don't match" warning
+  downloadSpreadsheetMlAsXlsx(xml, filename);
 };
 
 export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorType, activeTab = 'CFA', filename, defectFilters = []) => {
@@ -514,10 +509,12 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   const inspectorKey = findKey(firstItem, 'inspector', 'inspector_name', 'name') || 'inspector';
 
   // Find all defect slot keys (Defect 1, Qty defect 1, Defect 2, Qty defect 2 ... up to max slots e.g. 25)
+  // Probe gabungan seluruh baris — baris DB m100 hanya punya key slot sebanyak findings-nya
+  const defectKeyProbe = buildKeyProbe(dataset, rawData);
   const defectSlots = [];
   for (let i = 1; i <= 25; i++) {
-    const nameK = findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
-    const qtyK = findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    const nameK = findKey(defectKeyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+    const qtyK = findKey(defectKeyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
     if (nameK || qtyK) {
       defectSlots.push({
         index: i,
@@ -543,10 +540,10 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   const defectNameKeys = [];
   for (let i = 1; i <= 25; i++) {
     qtyDefectKeys.push(
-      findKey(firstItem, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`) || `qty_defect_${i}`
+      findKey(defectKeyProbe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`) || `qty_defect_${i}`
     );
     defectNameKeys.push(
-      findKey(firstItem, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`) || `defect_name_${i}`
+      findKey(defectKeyProbe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`) || `defect_name_${i}`
     );
   }
 
@@ -582,7 +579,7 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
     });
   }
 
-  const outFilename = filename || `Inspection_Detail_${activeTab ? activeTab.replace(/\s+/g, '_') : 'Report'}.xls`;
+  const outFilename = filename || `Inspection_Detail_${activeTab ? activeTab.replace(/\s+/g, '_') : 'Report'}.xlsx`;
 
   // Construct XML SpreadsheetML
   let xml = `<?xml version="1.0"?>
@@ -734,8 +731,8 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
       }
 
       xml += `
-    <Cell ss:StyleID="Cell"><Data ss:Type="String">\${escapeXml(finalDefNameStr)}</Data></Cell>
-    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">\${finalDefQty}</Data></Cell>`;
+    <Cell ss:StyleID="Cell"><Data ss:Type="String">${escapeXml(finalDefNameStr)}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${finalDefQty}</Data></Cell>`;
     });
 
     xml += `
@@ -935,13 +932,7 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
 
   xml += `</Workbook>`;
 
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = outFilename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Save as a real .xlsx — SpreadsheetML in a .xls file triggers Excel's
+  // "file format and extension don't match" warning
+  downloadSpreadsheetMlAsXlsx(xml, outFilename);
 };

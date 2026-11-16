@@ -34,6 +34,15 @@ export default defineConfig({
         target: 'https://www.appsheet.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/appsheet-img/, '')
+      },
+      // API server PSI (server/index.mjs) — data PSI LV.2 dari DB m100 + foto defect
+      '/api/psi': {
+        target: `http://localhost:${process.env.PSI_API_PORT || 3011}`,
+        changeOrigin: true
+      },
+      '/photos': {
+        target: `http://localhost:${process.env.PSI_API_PORT || 3011}`,
+        changeOrigin: true
       }
     }
   }
