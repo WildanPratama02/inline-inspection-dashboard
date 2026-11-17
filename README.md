@@ -77,3 +77,19 @@ vite.config.js                      # proxy dev /api/psi & /photos
 
 - File `.env` berada di `.gitignore`; konfigurasi server PSI di-override lewat `PSI_API_PORT` / `PSI_API_CACHE_SECONDS`.
 - Port dev default: Vite di `5173`, API PSI di `3011`. Keduanya dapat diubah via env.
+
+## Deploy ke server lain (API tetap di mesin m100)
+
+Dashboard bisa di-host di server dengan IP berbeda, sementara DB dan foto m100 tetap di mesin m100.
+
+**Mesin m100** (menjalankan `npm run psi-server`):
+1. `.env`: `DATABASE_URL`, `PHOTO_DIR`, `PSI_API_PORT=3011`, dan `PSI_CORS_ORIGIN=http://<IP_SERVER_BARU>:4173` (beberapa origin dipisah koma; kosong = semua origin diizinkan).
+2. Buka port `PSI_API_PORT` di firewall hanya untuk IP server baru. API tidak memiliki autentikasi.
+3. Cek dari server baru: `curl http://<IP_M100>:3011/api/psi/health`.
+
+**Server baru** (menyajikan dashboard):
+1. Clone repo, `npm install`.
+2. `.env`: `VITE_PSI_API_BASE=http://<IP_M100>:3011` (nilai ini tertanam saat build) dan `PSI_API_PORT=4173` (port tempat dashboard di server ini didengarkan; default `3011`).
+3. `npm run build`, lalu `npm run psi-server` **tanpa** `DATABASE_URL` di `.env` — server berjalan dalam mode static-only (menyajikan `dist/` + proxy foto spreadsheet `/appsheet-img`; `/api/psi` nonaktif). Jangan pakai `npm start` (`serve`): tidak punya proxy `/appsheet-img`, sehingga foto Supporting Report tidak tampil.
+4. Buka `http://<IP_SERVER_BARU>:4173`. Buka port 4173 di firewall server baru untuk pengguna dashboard.
+5. Jika dashboard `https`, API m100 juga harus `https` (mixed content diblokir browser).
