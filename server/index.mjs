@@ -38,18 +38,20 @@ const env = (key, fallback) => envVars[key] || process.env[key] || fallback;
 const DATABASE_URL = env('DATABASE_URL', '');
 const PHOTO_DIR = path.resolve(env('PHOTO_DIR', ''));
 const PORT = parseInt(env('PSI_API_PORT', '3011'), 10);
+// Origin dashboard yang boleh memanggil API (pisahkan dengan koma). Kosong = semua (*).
+const CORS_ORIGINS = env('PSI_CORS_ORIGIN', '').split(',').map((o) => o.trim()).filter(Boolean);
 const CACHE_SECONDS = parseInt(env('PSI_API_CACHE_SECONDS', '60'), 10);
 
-if (!DATABASE_URL) {
-  console.error('[psi-api] DATABASE_URL tidak ditemukan. Isi .env lebih dulu.');
-  process.exit(1);
-}
-
-const pool = new pg.Pool({
-  connectionString: DATABASE_URL,
-  max: 5,
-  // Menjalankan query khusus baca pada user m100_app.
-});
+// Tanpa DATABASE_URL server berjalan dalam mode "static-only": hanya menyajikan dist/
+// dan proxy /appsheet-img. Dipakai di server dashboard yang mengambil data PSI dari
+// API m100 di host lain (VITE_PSI_API_BASE). Endpoint /api/psi/* dan /photos/ nonaktif.
+const pool = DATABASE_URL
+  ? new pg.Pool({
+    connectionString: DATABASE_URL,
+    max: 5,
+    // Menjalankan query khusus baca pada user m100_app.
+  })
+  : null;
 
 // ── Query utama: submissions + findings + photos ──
 const FETCH_SQL = `
@@ -294,12 +296,19 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   // CORS terbuka (frontend boleh di host yang beda)
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const reqOrigin = req.headers.origin;
+  if (!CORS_ORIGINS.length) res.setHeader('Access-Control-Allow-Origin', '*');
+  else if (reqOrigin && CORS_ORIGINS.includes(reqOrigin)) { res.setHeader('Access-Control-Allow-Origin', reqOrigin); res.setHeader('Vary', 'Origin'); }
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.writeHead(204).end(); return; }
 
   try {
     // 1) API data PSI
+    if (!pool && (pathname.startsWith('/api/psi/') || pathname.startsWith('/photos/'))) {
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'DATABASE_URL tidak diset — server ini mode static-only' }));
+      return;
+    }
     if (pathname === '/api/psi/rows') {
       const level = (url.searchParams.get('level') || 'lv2').toLowerCase();
       const where = level === 'all' ? '' : level === 'lv1' ? 'PSI lv.1' : level === 'lv2' ? 'PSI lv.2' : '';
@@ -336,6 +345,10 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[psi-api] PSI dashboard API aktif di http://localhost:${PORT}`);
-  console.log(`[psi-api] DB: ${DATABASE_URL.replace(/:[^:@/]+@/, ':***@')}`);
-  console.log(`[psi-api] PHOTO_DIR: ${PHOTO_DIR}`);
+  if (pool) {
+    console.log(`[psi-api] DB: ${DATABASE_URL.replace(/:[^:@/]+@/, ':***@')}`);
+    console.log(`[psi-api] PHOTO_DIR: ${PHOTO_DIR}`);
+  } else {
+    console.log('[psi-api] DATABASE_URL kosong — mode static-only (dist/ + /appsheet-img saja)');
+  }
 });
