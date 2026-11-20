@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
 import { toJpeg } from 'html-to-image';
-import { buildKeyProbe, findKey, parseNumber, getInspectorType } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, isUsablePhotoUrl, parseNumber, getInspectorType } from '../utils/dataUtils';
 import DashboardContentView from './DashboardContentView';
 
 /**
@@ -64,7 +64,7 @@ const computeDefectImagesForPage = async (pageData, rawData) => {
 
       const name = item[nameKey];
       const qty = parseNumber(item[qtyKey]);
-      const url = imageUrlKeys.map((key) => item[key]).find((value) => value && value !== '-');
+      const url = imageUrlKeys.map((key) => item[key]).find(isUsablePhotoUrl);
 
       if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
         const normalizedName = name.trim();

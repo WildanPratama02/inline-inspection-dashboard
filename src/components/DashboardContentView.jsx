@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import KPIBox from './KPIBox';
 import DefectChart from './DefectChart';
+import TrendDefectTable from './TrendDefectTable';
 import DefectImages from './DefectImages';
 import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
 import CfaSeverityChart from './CfaSeverityChart';
 import CfaInspectorChart from './CfaInspectorChart';
-import { buildKeyProbe, findKey, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, isUsablePhotoUrl, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
@@ -261,7 +262,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     };
   }, [data, rawData, filters, is3rdParty, isT1qm, currentTab]);
 
-  const defectStats = useMemo(() => {
+  // Every defect name with its total qty (sorted desc) — Top 5 and Trend Defect read from this
+  const allDefectStats = useMemo(() => {
     if (!data || data.length === 0) return [];
 
     const counts = {};
@@ -296,7 +298,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
         const name = item[nameKey];
         const qty = parseNumber(item[qtyKey]);
-        const url = imageUrlKeys.map((key) => item[key]).find((value) => value && value !== '-');
+        const url = imageUrlKeys.map((key) => item[key]).find(isUsablePhotoUrl);
 
         if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
           const displayName = name.trim();
@@ -326,9 +328,10 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
     return Object.entries(counts)
       .map(([name, value]) => ({ name: displayNames[name] || name, value, url: imageSelections[name]?.url || null }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .sort((a, b) => b.value - a.value);
   }, [data, rawData, filters, isT1qm]);
+
+  const defectStats = useMemo(() => allDefectStats.slice(0, 5), [allDefectStats]);
 
   const defectImages = useMemo(() => {
     // If pre-loaded images are provided (PDF export), use them directly
@@ -582,6 +585,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2">
                 <DefectChart data={defectStats} />
               </div>
+              {currentTab === 'PSI LV.2' && <TrendDefectTable defects={allDefectStats} />}
               <div className="industrial-border bg-white/5 p-3 flex-1 flex flex-col min-h-0">
                 <StatsChart data={data} rawData={rawData} filters={filters} activeTab={currentTab} />
               </div>

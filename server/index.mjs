@@ -6,6 +6,7 @@
 //   GET /api/psi/rows?level=lvl2|lvl1|all  → rows siap pakai untuk dashboard
 //   GET /api/psi/health                    → cek status server & DB
 //   GET /photos/<object_key>               → file foto defect dari PHOTO_DIR
+//   GET /appsheet-img/template/gettablefileurl?... → proxy foto AppSheet (spreadsheet)
 //   (static)                               → dist/ build frontend (production)
 import http from 'node:http';
 import path from 'node:path';
@@ -37,31 +38,39 @@ const env = (key, fallback) => envVars[key] || process.env[key] || fallback;
 const DATABASE_URL = env('DATABASE_URL', '');
 const PHOTO_DIR = path.resolve(env('PHOTO_DIR', ''));
 const PORT = parseInt(env('PSI_API_PORT', '3011'), 10);
+// Origin dashboard yang boleh memanggil API (pisahkan dengan koma). Kosong = semua (*).
+const CORS_ORIGINS = env('PSI_CORS_ORIGIN', '').split(',').map((o) => o.trim()).filter(Boolean);
 const CACHE_SECONDS = parseInt(env('PSI_API_CACHE_SECONDS', '60'), 10);
 
-if (!DATABASE_URL) {
-  console.error('[psi-api] DATABASE_URL tidak ditemukan. Isi .env lebih dulu.');
-  process.exit(1);
-}
-
-const pool = new pg.Pool({
-  connectionString: DATABASE_URL,
-  max: 5,
-  // Menjalankan query khusus baca pada user m100_app.
-});
+// Tanpa DATABASE_URL server berjalan dalam mode "static-only": hanya menyajikan dist/
+// dan proxy /appsheet-img. Dipakai di server dashboard yang mengambil data PSI dari
+// API m100 di host lain (VITE_PSI_API_BASE). Endpoint /api/psi/* dan /photos/ nonaktif.
+const pool = DATABASE_URL
+  ? new pg.Pool({
+    connectionString: DATABASE_URL,
+    max: 5,
+    // Menjalankan query khusus baca pada user m100_app.
+  })
+  : null;
 
 // ── Query utama: submissions + findings + photos ──
+// Membaca view v_effective_* (dibuat sistem m100), bukan tabel submissions langsung.
+// Tabel submissions tidak boleh diedit/dihapus (business rule); koreksi admin disimpan
+// sebagai snapshot di submission_revisions (+ _findings, _photos). View effective
+// mengembalikan revisi terakhir bila ada, selain itu data asli — jadi dashboard
+// selalu menampilkan data yang sudah dikoreksi.
 const FETCH_SQL = `
   WITH s AS (
     SELECT
-      s.id, s.sealed_at, s.received_at, s.inspection_date, s.app_version,
+      s.id, s.display_no, s.sealed_at, s.received_at, s.inspection_date, s.app_version,
       s.username, s.level, s.factory, s.cell, s.po, s.article, s.model,
       s.destination, s.order_qty, s.podd, s.crd,
       s.partial_no, s.partial_qty,
       s.qty_rework, s.qty_rework_approved, s.qty_bgrade_inspections,
       s.qty_inspection, s.qty_a_grade, s.qty_b_grade, s.qty_defect, s.qty_no_defect,
-      s.rft, s.defect_rate, s.counting_rule
-    FROM submissions s
+      s.rft, s.defect_rate, s.counting_rule,
+      s.revision_no, s.corrected_at, s.corrected_by
+    FROM v_effective_submissions s
     WHERE ($1 = '' OR s.level = $1)
       AND s.inspection_date >= $2
       AND s.inspection_date <= $3
@@ -70,13 +79,14 @@ const FETCH_SQL = `
   f AS (
     SELECT
       s.id AS submission_id, s.inspection_date,
-      f.id AS finding_id, f.defect_id, f.defect_name, f.severity, f.qty
+      f.finding_id, f.defect_id, f.defect_name, f.severity, f.qty
     FROM s
-    JOIN submission_findings f ON f.submission_id = s.id
+    JOIN v_effective_findings f ON f.submission_id = s.id
   ),
   p AS (
     SELECT sp.submission_id, sp.defect_id, sp.object_key
-    FROM submission_photos sp
+    FROM v_effective_photos sp
+    WHERE sp.submission_id IN (SELECT id FROM s)
   )
   SELECT
     s.*,
@@ -145,6 +155,9 @@ function mapRowToDashboard(row) {
     // kunci ini untuk referensi (opsional dipakai di luar dashboard)
     submission_id: row.id,
     display_no: row.display_no,
+    revision_no: toNumber(row.revision_no), // 0 = data asli, >0 = sudah dikoreksi admin
+    corrected_at: row.corrected_at || null,
+    corrected_by: row.corrected_by || null,
     level: String(row.level).trim().toUpperCase(), // 'PSI LV.2'
 
     date: dateToSlash(row.inspection_date),
@@ -227,7 +240,14 @@ function tryServe(pathname, res) {
   if (!file.startsWith(DIST)) return false;
   try {
     if (fs.statSync(file).isFile()) {
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+      // index.html must always be revalidated so a new build (new hashed
+      // bundle names) reaches the browser on a normal refresh; hashed files
+      // under /assets/ never change and can be cached long-term.
+      const isHashedAsset = /[\\/]assets[\\/]/.test(file) && /-[A-Za-z0-9_-]{6,}\.(js|css)$/.test(file);
+      res.writeHead(200, {
+        'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+        'Cache-Control': isHashedAsset ? 'public, max-age=31536000, immutable' : 'no-cache',
+      });
       fs.createReadStream(file).pipe(res);
       return true;
     }
@@ -254,18 +274,51 @@ function servePhoto(urlPath, res) {
   fs.createReadStream(full).pipe(res);
 }
 
+// Proxy foto AppSheet (laporan spreadsheet / SUPPORTING REPORT PSI LV.2).
+// Sama dengan proxy `/appsheet-img` di vite.config.js, supaya gambar tetap
+// tampil saat dashboard di-serve server ini (production). Hanya endpoint
+// file AppSheet yang diteruskan — bukan proxy terbuka.
+const APPSHEET_ORIGIN = 'https://www.appsheet.com';
+const APPSHEET_ALLOWED_PATH = '/template/gettablefileurl';
+async function proxyAppsheetImage(url, res) {
+  const upstreamPath = url.pathname.replace(/^\/appsheet-img/, '');
+  if (upstreamPath !== APPSHEET_ALLOWED_PATH) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
+    return;
+  }
+  const upstream = await fetch(`${APPSHEET_ORIGIN}${upstreamPath}${url.search}`, { redirect: 'follow' });
+  if (!upstream.ok) {
+    res.writeHead(upstream.status, { 'Content-Type': 'text/plain' }).end('AppSheet image unavailable');
+    return;
+  }
+  const body = Buffer.from(await upstream.arrayBuffer());
+  res.writeHead(200, {
+    'Content-Type': upstream.headers.get('content-type') || 'image/jpeg',
+    'Content-Length': body.length,
+    'Cache-Control': 'public, max-age=86400',
+  });
+  res.end(body);
+}
+
 // ── HTTP server ──
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
   // CORS terbuka (frontend boleh di host yang beda)
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const reqOrigin = req.headers.origin;
+  if (!CORS_ORIGINS.length) res.setHeader('Access-Control-Allow-Origin', '*');
+  else if (reqOrigin && CORS_ORIGINS.includes(reqOrigin)) { res.setHeader('Access-Control-Allow-Origin', reqOrigin); res.setHeader('Vary', 'Origin'); }
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') { res.writeHead(204).end(); return; }
 
   try {
     // 1) API data PSI
+    if (!pool && (pathname.startsWith('/api/psi/') || pathname.startsWith('/photos/'))) {
+      res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'DATABASE_URL tidak diset — server ini mode static-only' }));
+      return;
+    }
     if (pathname === '/api/psi/rows') {
       const level = (url.searchParams.get('level') || 'lv2').toLowerCase();
       const where = level === 'all' ? '' : level === 'lv1' ? 'PSI lv.1' : level === 'lv2' ? 'PSI lv.2' : '';
@@ -285,6 +338,7 @@ const server = http.createServer(async (req, res) => {
 
     // 2) Foto defect
     if (pathname.startsWith('/photos/')) { servePhoto(pathname, res); return; }
+    if (pathname.startsWith('/appsheet-img/')) { await proxyAppsheetImage(url, res); return; }
 
     // 3) Static dist (production: jalankan server ini, bukan `serve`)
     if (tryServe(pathname, res)) return;
@@ -301,6 +355,10 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[psi-api] PSI dashboard API aktif di http://localhost:${PORT}`);
-  console.log(`[psi-api] DB: ${DATABASE_URL.replace(/:[^:@/]+@/, ':***@')}`);
-  console.log(`[psi-api] PHOTO_DIR: ${PHOTO_DIR}`);
+  if (pool) {
+    console.log(`[psi-api] DB: ${DATABASE_URL.replace(/:[^:@/]+@/, ':***@')}`);
+    console.log(`[psi-api] PHOTO_DIR: ${PHOTO_DIR}`);
+  } else {
+    console.log('[psi-api] DATABASE_URL kosong — mode static-only (dist/ + /appsheet-img saja)');
+  }
 });

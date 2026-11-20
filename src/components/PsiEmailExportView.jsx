@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, findKey, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -209,7 +209,7 @@ export const computeTopDefects = (data, rawData) => {
       if (!nameKey || !qtyKey) continue;
       const name = item[nameKey];
       const qty = parseNumber(item[qtyKey]);
-      const url = imageUrlKeys.map(k => item[k]).find(v => v && v !== '-');
+      const url = imageUrlKeys.map(k => item[k]).find(isUsablePhotoUrl);
 
       if (name && name !== '-' && name !== 'NO DATA' && qty > 0) {
         const norm = name.trim();
