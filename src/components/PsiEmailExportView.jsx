@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, findKey, groupTrendDefects, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -177,9 +177,9 @@ export const computeStats = (data, rawData) => {
 };
 
 /**
- * Compute Top 5 defect stats for a slice of data
+ * Compute every defect name with its total qty (sorted desc) for a slice of data
  */
-export const computeTopDefects = (data, rawData) => {
+export const computeAllDefects = (data, rawData) => {
   if (!data || data.length === 0) return [];
   const firstItem = rawData[0] || {};
   const keyProbe = buildKeyProbe(data, rawData);
@@ -226,9 +226,13 @@ export const computeTopDefects = (data, rawData) => {
 
   return Object.entries(counts)
     .map(([name, value]) => ({ name, value, url: imageSelections[name]?.url || null }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+    .sort((a, b) => b.value - a.value);
 };
+
+/**
+ * Compute Top 5 defect stats for a slice of data
+ */
+export const computeTopDefects = (data, rawData) => computeAllDefects(data, rawData).slice(0, 5);
 
 /**
  * Compute RFT by Date - synchronized with computeStats
@@ -390,6 +394,64 @@ const EmailRftDateChart = ({ data, height = 150 }) => {
 };
 
 /* ─── Main PsiEmailExportView Component ─── */
+// TREND DEFECT table (Soiling = Contamination, Bonding = Bonding gap) — light email theme
+const TREND_COLORS = { SOILING: '#b45309', BONDING: '#0369a1' };
+const EmailTrendDefectTable = ({ defects = [] }) => {
+  const groups = groupTrendDefects(defects);
+  const cell = { padding: '4px 6px', borderBottom: '1px solid #e2e8f0' };
+  return (
+    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px', borderRadius: '3px' }}>
+      <div
+        style={{
+          fontSize: '11px', fontWeight: 900, color: '#0f172a', textAlign: 'center', textTransform: 'uppercase',
+          letterSpacing: '1px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '6px'
+        }}
+      >
+        TREND DEFECT
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px', color: '#0f172a' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+            <th style={{ ...cell, textAlign: 'left', fontWeight: 800, fontSize: '9px', width: '90px' }}>TREND DEFECT</th>
+            <th style={{ ...cell, textAlign: 'left', fontWeight: 800, fontSize: '9px' }}>DEFECT NAME</th>
+            <th style={{ ...cell, textAlign: 'right', fontWeight: 800, fontSize: '9px', width: '50px' }}>QTY</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group) => {
+            const rows = group.items.length ? group.items : [{ name: '-', value: 0 }];
+            const color = TREND_COLORS[group.key] || '#0f172a';
+            return (
+              <React.Fragment key={group.key}>
+                {rows.map((item, idx) => (
+                  <tr key={`${group.key}-${item.name}`}>
+                    {idx === 0 && (
+                      <td
+                        rowSpan={rows.length + 1}
+                        style={{ ...cell, fontWeight: 900, color, textTransform: 'uppercase', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #cbd5e1' }}
+                      >
+                        {group.label}
+                      </td>
+                    )}
+                    <td style={{ ...cell, fontWeight: 600 }}>{item.name}</td>
+                    <td style={{ ...cell, textAlign: 'right', fontWeight: 800 }}>{formatNumberIndo(item.value)}</td>
+                  </tr>
+                ))}
+                <tr style={{ backgroundColor: '#e2e8f0' }}>
+                  <td style={{ ...cell, borderBottom: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 800, fontSize: '8.5px', color: '#475569', textTransform: 'uppercase' }}>
+                    TOTAL {group.label}
+                  </td>
+                  <td style={{ ...cell, borderBottom: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900, color }}>{formatNumberIndo(group.total)}</td>
+                </tr>
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const PsiEmailExportView = ({
   psiData = [],
   rawData = [],
@@ -418,7 +480,8 @@ const PsiEmailExportView = ({
 
   // 2. Compute Overall Data
   const overallStats = useMemo(() => computeStats(psiData, rawData), [psiData, rawData]);
-  const overallTopDefects = useMemo(() => computeTopDefects(psiData, rawData), [psiData, rawData]);
+  const overallAllDefects = useMemo(() => computeAllDefects(psiData, rawData), [psiData, rawData]);
+  const overallTopDefects = useMemo(() => overallAllDefects.slice(0, 5), [overallAllDefects]);
   const overallRftByDate = useMemo(() => computeRftByDate(psiData, rawData, overallStats.rft), [psiData, rawData, overallStats.rft]);
 
   // Overall Factory List Text (e.g. "F 1, F 3, F 4")
@@ -435,7 +498,8 @@ const PsiEmailExportView = ({
     return factories.map(f => {
       const fData = psiData.filter(item => String(item[factoryKey] || '').trim() === f);
       const stats = computeStats(fData, rawData);
-      const topDefects = computeTopDefects(fData, rawData);
+      const allDefects = computeAllDefects(fData, rawData);
+      const topDefects = allDefects.slice(0, 5);
       const rftByDate = computeRftByDate(fData, rawData, stats.rft);
 
       // Metadata matching user screenshot:
@@ -475,6 +539,7 @@ const PsiEmailExportView = ({
         factoryDisplayBox,
         data: fData,
         stats,
+        allDefects,
         topDefects,
         rftByDate,
         images,
@@ -741,6 +806,11 @@ const PsiEmailExportView = ({
                 TOP 5 DEFECT
               </div>
               <EmailDefectChart data={overallTopDefects} height={225} />
+            </div>
+
+            {/* TREND DEFECT table — under TOP 5 DEFECT */}
+            <div style={{ marginTop: '8px' }}>
+              <EmailTrendDefectTable defects={overallAllDefects} />
             </div>
 
             {/* RFT BY DATE Chart */}
@@ -1268,6 +1338,9 @@ const PsiEmailExportView = ({
                 </div>
 
               </div>
+
+              {/* TREND DEFECT table — full width under TOP 5 DEFECT + photos */}
+              <EmailTrendDefectTable defects={fItem.allDefects} />
 
               {/* Bottom Area: RFT BY DATE Chart */}
               <div

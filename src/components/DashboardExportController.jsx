@@ -133,6 +133,10 @@ const waitForImages = (container, timeoutMs = 6000) => {
  * Images are PRE-FETCHED as data URIs before rendering to avoid
  * browser cache / lazy-loading / CORS issues during html-to-image capture.
  */
+// Export page width (px). Height follows the rendered dashboard (never below MIN_PAGE_HEIGHT).
+const PAGE_WIDTH = 1400;
+const MIN_PAGE_HEIGHT = 900;
+
 const DashboardExportController = ({ filteredData, rawData, filters, activeTab, onProgress, onDone }) => {
   const containerRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(null);
@@ -194,12 +198,9 @@ const DashboardExportController = ({ filteredData, rawData, filters, activeTab, 
 
     // Run the sequential capture loop
     const runAll = async () => {
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [1400, 900]
-      });
-      let isFirstPage = true;
+      // Each PDF page is sized to its captured dashboard (fixed width, height = content),
+      // so tall layouts (Trend Defect, RFT BY DATE, ...) are never cut off.
+      let pdf = null;
 
       for (let idx = 0; idx < pages.length; idx++) {
         const page = pages[idx];
@@ -263,18 +264,24 @@ const DashboardExportController = ({ filteredData, rawData, filters, activeTab, 
             await new Promise(r => setTimeout(r, 200));
 
             try {
+              const pageHeight = Math.max(MIN_PAGE_HEIGHT, Math.ceil(pageEl.scrollHeight));
               const dataUrl = await toJpeg(pageEl, {
                 quality: 0.8,
                 backgroundColor: '#0A0520',
                 pixelRatio: 1,
-                skipFonts: true
+                skipFonts: true,
+                width: PAGE_WIDTH,
+                height: pageHeight
               });
 
-              if (!isFirstPage) {
-                pdf.addPage([1400, 900], 'landscape');
+              const format = [PAGE_WIDTH, pageHeight];
+              const orientation = pageHeight > PAGE_WIDTH ? 'portrait' : 'landscape';
+              if (!pdf) {
+                pdf = new jsPDF({ orientation, unit: 'px', format });
+              } else {
+                pdf.addPage(format, orientation);
               }
-              isFirstPage = false;
-              pdf.addImage(dataUrl, 'JPEG', 0, 0, 1400, 900);
+              pdf.addImage(dataUrl, 'JPEG', 0, 0, PAGE_WIDTH, pageHeight);
             } catch (err) {
               console.error(`Failed to capture page ${idx + 1}`, err);
             }
@@ -286,7 +293,7 @@ const DashboardExportController = ({ filteredData, rawData, filters, activeTab, 
       onProgress('Saving PDF...', pages.length, pages.length);
       await new Promise(r => setTimeout(r, 300));
       const filename = `Dashboard_${activeTab ? activeTab.replace(/\s+/g, '_') : 'MultiPage'}_Export.pdf`;
-      pdf.save(filename);
+      if (pdf) pdf.save(filename);
       onDone();
     };
 
@@ -302,16 +309,14 @@ const DashboardExportController = ({ filteredData, rawData, filters, activeTab, 
         position: 'fixed',
         top: 0,
         left: 0,
-        width: 1400,
-        height: 900,
-        overflow: 'hidden',
+        width: PAGE_WIDTH,
         pointerEvents: 'none',
         zIndex: -1,
         opacity: 0.01
       }}
       ref={containerRef}
     >
-      <div className="dashboard-export-page" style={{ width: 1400, height: 900, background: '#0A0520' }}>
+      <div className="dashboard-export-page" style={{ width: PAGE_WIDTH, minHeight: MIN_PAGE_HEIGHT, background: '#0A0520' }}>
         <DashboardContentView
           key={currentPage.key}
           id="export-dashboard-canvas"
