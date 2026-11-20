@@ -395,23 +395,25 @@ const EmailRftDateChart = ({ data, height = 150 }) => {
 
 /* ─── Main PsiEmailExportView Component ─── */
 // TREND DEFECT table (Soiling = Contamination, Bonding = Bonding gap) — light email theme
-const TREND_COLORS = { SOILING: '#b45309', BONDING: '#0369a1' };
+// Yellow-orange theme so the Trend Defect table stands out from the other panels
+const TREND_COLORS = { SOILING: '#a16207', BONDING: '#c2410c' };
 const EmailTrendDefectTable = ({ defects = [] }) => {
   const groups = groupTrendDefects(defects);
-  const cell = { padding: '4px 6px', borderBottom: '1px solid #e2e8f0' };
+  const cell = { padding: '4px 6px', borderBottom: '1px solid #fde68a' };
   return (
-    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '8px', borderRadius: '3px' }}>
+    <div style={{ backgroundColor: '#fffbeb', border: '2px solid #f59e0b', padding: '8px', borderRadius: '3px' }}>
       <div
         style={{
-          fontSize: '11px', fontWeight: 900, color: '#0f172a', textAlign: 'center', textTransform: 'uppercase',
-          letterSpacing: '1px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '6px'
+          fontSize: '11px', fontWeight: 900, color: '#000000', textAlign: 'center', textTransform: 'uppercase',
+          letterSpacing: '1px', background: 'linear-gradient(90deg, #facc15, #f97316)', padding: '4px 0',
+          borderRadius: '2px', marginBottom: '6px'
         }}
       >
         TREND DEFECT
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px', color: '#0f172a' }}>
         <thead>
-          <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+          <tr style={{ backgroundColor: '#fde68a', borderBottom: '1px solid #f59e0b' }}>
             <th style={{ ...cell, textAlign: 'left', fontWeight: 800, fontSize: '9px', width: '90px' }}>TREND DEFECT</th>
             <th style={{ ...cell, textAlign: 'left', fontWeight: 800, fontSize: '9px' }}>DEFECT NAME</th>
             <th style={{ ...cell, textAlign: 'right', fontWeight: 800, fontSize: '9px', width: '50px' }}>QTY</th>
@@ -428,7 +430,7 @@ const EmailTrendDefectTable = ({ defects = [] }) => {
                     {idx === 0 && (
                       <td
                         rowSpan={rows.length + 1}
-                        style={{ ...cell, fontWeight: 900, color, textTransform: 'uppercase', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #cbd5e1' }}
+                        style={{ ...cell, fontWeight: 900, color, textTransform: 'uppercase', verticalAlign: 'middle', borderRight: '1px solid #fcd34d', borderBottom: '1px solid #f59e0b' }}
                       >
                         {group.label}
                       </td>
@@ -437,11 +439,11 @@ const EmailTrendDefectTable = ({ defects = [] }) => {
                     <td style={{ ...cell, textAlign: 'right', fontWeight: 800 }}>{formatNumberIndo(item.value)}</td>
                   </tr>
                 ))}
-                <tr style={{ backgroundColor: '#e2e8f0' }}>
-                  <td style={{ ...cell, borderBottom: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 800, fontSize: '8.5px', color: '#475569', textTransform: 'uppercase' }}>
+                <tr style={{ backgroundColor: '#fed7aa' }}>
+                  <td style={{ ...cell, borderBottom: '1px solid #f59e0b', textAlign: 'right', fontWeight: 800, fontSize: '8.5px', color: '#7c2d12', textTransform: 'uppercase' }}>
                     TOTAL {group.label}
                   </td>
-                  <td style={{ ...cell, borderBottom: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900, color }}>{formatNumberIndo(group.total)}</td>
+                  <td style={{ ...cell, borderBottom: '1px solid #f59e0b', textAlign: 'right', fontWeight: 900, color }}>{formatNumberIndo(group.total)}</td>
                 </tr>
               </React.Fragment>
             );
