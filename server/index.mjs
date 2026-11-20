@@ -54,17 +54,23 @@ const pool = DATABASE_URL
   : null;
 
 // ── Query utama: submissions + findings + photos ──
+// Membaca view v_effective_* (dibuat sistem m100), bukan tabel submissions langsung.
+// Tabel submissions tidak boleh diedit/dihapus (business rule); koreksi admin disimpan
+// sebagai snapshot di submission_revisions (+ _findings, _photos). View effective
+// mengembalikan revisi terakhir bila ada, selain itu data asli — jadi dashboard
+// selalu menampilkan data yang sudah dikoreksi.
 const FETCH_SQL = `
   WITH s AS (
     SELECT
-      s.id, s.sealed_at, s.received_at, s.inspection_date, s.app_version,
+      s.id, s.display_no, s.sealed_at, s.received_at, s.inspection_date, s.app_version,
       s.username, s.level, s.factory, s.cell, s.po, s.article, s.model,
       s.destination, s.order_qty, s.podd, s.crd,
       s.partial_no, s.partial_qty,
       s.qty_rework, s.qty_rework_approved, s.qty_bgrade_inspections,
       s.qty_inspection, s.qty_a_grade, s.qty_b_grade, s.qty_defect, s.qty_no_defect,
-      s.rft, s.defect_rate, s.counting_rule
-    FROM submissions s
+      s.rft, s.defect_rate, s.counting_rule,
+      s.revision_no, s.corrected_at, s.corrected_by
+    FROM v_effective_submissions s
     WHERE ($1 = '' OR s.level = $1)
       AND s.inspection_date >= $2
       AND s.inspection_date <= $3
@@ -73,13 +79,14 @@ const FETCH_SQL = `
   f AS (
     SELECT
       s.id AS submission_id, s.inspection_date,
-      f.id AS finding_id, f.defect_id, f.defect_name, f.severity, f.qty
+      f.finding_id, f.defect_id, f.defect_name, f.severity, f.qty
     FROM s
-    JOIN submission_findings f ON f.submission_id = s.id
+    JOIN v_effective_findings f ON f.submission_id = s.id
   ),
   p AS (
     SELECT sp.submission_id, sp.defect_id, sp.object_key
-    FROM submission_photos sp
+    FROM v_effective_photos sp
+    WHERE sp.submission_id IN (SELECT id FROM s)
   )
   SELECT
     s.*,
@@ -148,6 +155,9 @@ function mapRowToDashboard(row) {
     // kunci ini untuk referensi (opsional dipakai di luar dashboard)
     submission_id: row.id,
     display_no: row.display_no,
+    revision_no: toNumber(row.revision_no), // 0 = data asli, >0 = sudah dikoreksi admin
+    corrected_at: row.corrected_at || null,
+    corrected_by: row.corrected_by || null,
     level: String(row.level).trim().toUpperCase(), // 'PSI LV.2'
 
     date: dateToSlash(row.inspection_date),

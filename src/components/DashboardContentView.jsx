@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import KPIBox from './KPIBox';
 import DefectChart from './DefectChart';
+import TrendDefectTable from './TrendDefectTable';
 import DefectImages from './DefectImages';
 import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
@@ -261,7 +262,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     };
   }, [data, rawData, filters, is3rdParty, isT1qm, currentTab]);
 
-  const defectStats = useMemo(() => {
+  // Every defect name with its total qty (sorted desc) — Top 5 and Trend Defect read from this
+  const allDefectStats = useMemo(() => {
     if (!data || data.length === 0) return [];
 
     const counts = {};
@@ -326,9 +328,10 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
     return Object.entries(counts)
       .map(([name, value]) => ({ name: displayNames[name] || name, value, url: imageSelections[name]?.url || null }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .sort((a, b) => b.value - a.value);
   }, [data, rawData, filters, isT1qm]);
+
+  const defectStats = useMemo(() => allDefectStats.slice(0, 5), [allDefectStats]);
 
   const defectImages = useMemo(() => {
     // If pre-loaded images are provided (PDF export), use them directly
@@ -582,6 +585,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2">
                 <DefectChart data={defectStats} />
               </div>
+              {currentTab === 'PSI LV.2' && <TrendDefectTable defects={allDefectStats} />}
               <div className="industrial-border bg-white/5 p-3 flex-1 flex flex-col min-h-0">
                 <StatsChart data={data} rawData={rawData} filters={filters} activeTab={currentTab} />
               </div>

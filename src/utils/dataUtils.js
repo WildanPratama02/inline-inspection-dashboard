@@ -294,3 +294,22 @@ export const isUsablePhotoUrl = (value) => {
   if (/[?&]fileName=(&|$)/i.test(str)) return false;
   return true;
 };
+
+// Trend Defect groups for the PSI LV.2 report.
+// SOILING = Contamination defects (m100 defects.ctq_category 'Soiling': every defect
+// whose name contains CONTAMINATION, e.g. D009/D010/D045/D046/D065/D067/D068).
+// BONDING = Bonding gap defects (D082 BONDING GAP >4mm, D083 BONDING GAP <=4mm).
+// Matched by name so it works for both m100 rows and spreadsheet rows.
+export const TREND_DEFECT_GROUPS = [
+  { key: 'SOILING', label: 'Soiling', match: (name) => /CONTAMINATION/i.test(name) },
+  { key: 'BONDING', label: 'Bonding', match: (name) => /BONDING\s*GAP/i.test(name) },
+];
+
+// defects: [{ name, value }] → [{ key, label, total, items: [{ name, value }] }]
+export const groupTrendDefects = (defects = []) => TREND_DEFECT_GROUPS.map((group) => {
+  const items = defects
+    .filter((d) => d && d.name && group.match(String(d.name)) && Number(d.value) > 0)
+    .map((d) => ({ name: d.name, value: Number(d.value) }))
+    .sort((a, b) => b.value - a.value);
+  return { key: group.key, label: group.label, total: items.reduce((sum, d) => sum + d.value, 0), items };
+});
