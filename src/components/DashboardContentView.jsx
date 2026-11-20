@@ -574,6 +574,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
                 <DefectChart data={defectStats} height={260} />
               </div>
+              {currentTab === '3rd Party' && <TrendDefectTable defects={allDefectStats} />}
               {/* Building Status Chart */}
               <div className="w-full flex-1 flex flex-col min-h-0">
                 <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
