@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getInspectorType, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
+import { getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
 
 test('groups only the supported T1QM inspection types', () => {
   for (const type of ['T1QM 1', 'T1QM 2', 'T1QM 3']) {
@@ -68,4 +68,17 @@ test('skips AppSheet photo links with an empty fileName', () => {
   assert.equal(isUsablePhotoUrl('/photos/2026/11/a.jpg'), true);
   assert.equal(isUsablePhotoUrl('-'), false);
   assert.equal(isUsablePhotoUrl(''), false);
+});
+
+test('groups contamination defects as Soiling and bonding gap defects as Bonding', () => {
+  const groups = groupTrendDefects([
+    { name: 'CONTAMINATION (STAINS, CEMENT, etc.) (>2 dots, >=2mm)', value: 60 },
+    { name: 'LACE / VELCRO / SPEED LACE : CONTAMINATION', value: 4 },
+    { name: 'BONDING GAP (<=4mm)', value: 55 },
+    { name: 'BONDING GAP (>4mm)', value: 70 },
+    { name: 'OVER CEMENTING OR PRIMING ( YELLOWING OR DISCOLORATION)', value: 39 },
+    { name: 'COMPONENTS DELAMINATION (>4mm length and depth)', value: 3 },
+  ]);
+  assert.deepEqual(groups.map((g) => [g.label, g.total, g.items.length]), [['Soiling', 64, 2], ['Bonding', 125, 2]]);
+  assert.equal(groups[1].items[0].name, 'BONDING GAP (>4mm)');
 });
