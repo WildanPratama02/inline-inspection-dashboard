@@ -79,7 +79,9 @@ export const CFA_NAME_CANONICAL = {
   'ZULIA NUR RAHMA': 'INA',
   'DEWI INTAN HAPSARI': 'INTAN',
   'DISKA AINNURRAHMA INDAHSARI': 'DISKA',
+  'DISKA AINURRAHMA': 'DISKA',
   'WAKHIDAH APRINIANISMA': 'NISMA',
+  'WAKHIDAH APRIANISMA': 'NISMA',
   'AHDA SILVIA RIZKI': 'AHDA',
   'ANINDYA AGUSTIANA': 'ANIN',
   'AYU ISLAHIYAH': 'AYU',
@@ -130,8 +132,13 @@ export const CFA_FULL_NAMES = {
 };
 
 // AQL INSPECTOR NAME values that are not CFAs: test entries and inspectors outside the CFA team.
-// UUN, IDA and AZIZAH moved up to PSI LV.2, so their AQL inspections are left out too.
-export const EXCLUDED_CFA_NAMES = ['CMA TEST', 'AGIS', 'REKA', 'HILHAM', 'AZZI', 'UUN', 'IDA', 'AZIZAH'];
+// UUN, IDA and AZIZAH moved up to PSI LV.2.
+// SINTIA, ROIS, NISMA and RISMA moved up to PSI; DISKA became QIP HEAD.
+// BANGKIT is not CFA certified. Exclude these names from CFA validation and exports.
+export const EXCLUDED_CFA_NAMES = [
+  'CMA TEST', 'AGIS', 'REKA', 'HILHAM', 'AZZI', 'UUN', 'IDA', 'AZIZAH',
+  'SINTIA', 'ROIS', 'NISMA', 'RISMA', 'BANGKIT', 'DISKA'
+];
 
 /**
  * Split AQL INSPECTOR NAME into individual, canonical CFA names.
