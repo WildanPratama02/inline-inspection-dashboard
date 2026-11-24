@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, Cell } from 'recharts';
-import { computeTrendDefectRates, formatAxisPercent, trendPercentTicks } from '../utils/dataUtils';
+import { formatAxisPercent, trendPercentTicks } from '../utils/dataUtils';
 
 // Yellow (Soiling) / orange (Bonding) — the highlight colours of the Trend Defect panel.
 // Each bar is also named on the axis, so identity never relies on colour alone.
@@ -25,14 +25,14 @@ const TrendTick = ({ x, y, payload, rows }) => {
   );
 };
 
-const TrendTooltip = ({ active, payload, qtyInspection }) => {
+const TrendTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
   const row = payload[0].payload;
   return (
     <div style={{ backgroundColor: '#1A0F5A', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 10px', fontSize: 12 }}>
       <div style={{ fontWeight: 700, color: '#ffffff' }}>{row.label}</div>
       <div style={{ color: 'rgba(255,255,255,0.85)' }}>
-        {formatTrendPercent(row.rate)} — {formatQty(row.qty)} / {formatQty(qtyInspection)} pcs
+        {formatTrendPercent(row.rate)} — {formatQty(row.qty)} / {formatQty(row.inspection)} pcs
       </div>
     </div>
   );
@@ -41,8 +41,8 @@ const TrendTooltip = ({ active, payload, qtyInspection }) => {
 // TREND DEFECT bar chart: Soiling (contamination + over cementing) and Bonding (bonding gap),
 // each as defect qty / qty inspection (%). `defects` = every defect name with its total qty.
 // denominatorLabel: what qtyInspection is (CFA divides by Sample Lot)
-const TrendDefectChart = ({ defects = [], qtyInspection = 0, denominatorLabel = 'Qty Inspection', height = 210, className = '' }) => {
-  const rows = useMemo(() => computeTrendDefectRates(defects, qtyInspection), [defects, qtyInspection]);
+// rows: computeTrendDefectFromRows() output — [{ key, label, qty, inspection, rate }]
+const TrendDefectChart = ({ rows = [], denominatorLabel = 'Qty Inspection', height = 210, className = '' }) => {
   const maxRate = Math.max(...rows.map((r) => r.rate), 0);
   const ticks = trendPercentTicks(maxRate);
 
@@ -72,7 +72,7 @@ const TrendDefectChart = ({ defects = [], qtyInspection = 0, denominatorLabel = 
               tickLine={false}
               width={46}
             />
-            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.08)' }} content={<TrendTooltip qtyInspection={qtyInspection} />} />
+            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.08)' }} content={<TrendTooltip />} />
             <Bar dataKey="rate" radius={[4, 4, 0, 0]} maxBarSize={70} isAnimationActive={false}>
               {rows.map((r) => <Cell key={r.key} fill={TREND_BAR_COLORS[r.key]} />)}
               <LabelList dataKey="rate" position="top" formatter={formatTrendPercent} fill="#ffffff" style={{ fontSize: '13px', fontWeight: 'bold' }} />

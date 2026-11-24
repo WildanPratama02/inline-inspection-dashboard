@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, Cell } from 'recharts';
-import { computeTrendDefectRates, formatAxisPercent, trendPercentTicks } from '../utils/dataUtils';
+import { formatAxisPercent, trendPercentTicks } from '../utils/dataUtils';
 
 // Light email theme: darker yellow / orange so both bars read on white (palette validated)
 const EMAIL_BAR_COLORS = { SOILING: '#ca8a04', BONDING: '#c2410c' };
@@ -23,8 +23,8 @@ const EmailTrendTick = ({ x, y, payload, rows }) => {
 
 // TREND DEFECT bar chart for the email PDF exports (PSI LV.2, AQL 3rd Party):
 // Soiling / Bonding as defect qty / qty inspection (%).
-const EmailTrendDefectChart = ({ defects = [], qtyInspection = 0, height = 170 }) => {
-  const rows = computeTrendDefectRates(defects, qtyInspection);
+// rows: computeTrendDefectFromRows() output — [{ key, label, qty, inspection, rate }]
+const EmailTrendDefectChart = ({ rows = [], height = 170 }) => {
   const maxRate = Math.max(...rows.map((r) => r.rate), 0);
   const ticks = trendPercentTicks(maxRate);
 
