@@ -4,7 +4,7 @@ import {
   BarChart, Bar, Line, ComposedChart, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -507,6 +507,8 @@ const AqlEmailExportView = ({
 
   // 2. Compute Overall Data
   const overallStats = useMemo(() => compute3rdPartyStats(aqlData, rawData), [aqlData, rawData]);
+  // Trend Defect denominator: qty inspection of the rows that contain the group's defect
+  const trendInspectionKey = findKey(buildKeyProbe(rawData), 'qty_inspection', 'qty inspection');
   const overallLimits = useMemo(() => getAqlLimits(overallStats.qtyChecking), [overallStats.qtyChecking]);
   const overallAllDefects = useMemo(() => computeAllDefects(aqlData, rawData), [aqlData, rawData]);
   const overallTopDefects = useMemo(() => overallAllDefects.slice(0, 5), [overallAllDefects]);
@@ -786,7 +788,7 @@ const AqlEmailExportView = ({
 
             {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectChart defects={overallAllDefects} qtyInspection={overallStats.qtyChecking} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(aqlData, { inspectionKey: trendInspectionKey })} />
             </div>
 
             {/* Building Status Chart */}
@@ -1356,7 +1358,7 @@ const AqlEmailExportView = ({
               </div>
 
               {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectChart defects={fItem.allDefects} qtyInspection={fItem.stats.qtyChecking} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey })} />
 
               {/* Bottom Area: Building Status Chart */}
               <div

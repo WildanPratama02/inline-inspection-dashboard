@@ -1,4 +1,4 @@
-import { buildKeyProbe, computeTrendDefectRates, findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, computeTrendDefectFromRows, findKey, parseNumber, parsePercent } from './dataUtils.js';
 import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 
 const escapeXml = (unsafe) => {
@@ -893,30 +893,15 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   xml += `  </Table>
  </Worksheet>\n`;
 
-  // --- Trend Defect: Soiling / Bonding as % of qty inspection (same as the dashboard chart) ---
+  // --- Trend Defect: Soiling / Bonding (same rule as the dashboard chart) ---
+  // Per group: qty defect / inspection qty of the rows that contain that group's defect.
+  // CFA divides by sample lot, other tabs by qty inspection.
   {
-    const trendCounts = {};
-    let trendInspection = 0;
-    // Same denominator as the dashboard QTY INSPECTION KPI (CFA shows sample lot)
     const sampleLotKey = activeTab === 'CFA' ? findKey(firstItem, 'sample_lot', 'sample lot') : null;
-    const trendInsKey = sampleLotKey || qtyInsKey;
-    rows.forEach(item => {
-      trendInspection += trendInsKey ? parseNumber(item[trendInsKey]) : 0;
-      for (let i = 0; i < 25; i++) {
-        const nameKey = defectNameKeys[i];
-        const qtyKey = qtyDefectKeys[i];
-        if (!nameKey || !qtyKey) continue;
-        const dName = String(item[nameKey] || '').trim();
-        const dQty = parseNumber(item[qtyKey]);
-        if (!dName || dName === '-' || dQty <= 0) continue;
-        if (isDefectFiltered && !defectFilters.includes(dName)) continue;
-        trendCounts[dName] = (trendCounts[dName] || 0) + dQty;
-      }
+    const trendRows = computeTrendDefectFromRows(rows, {
+      inspectionKey: sampleLotKey || qtyInsKey,
+      includeDefect: isDefectFiltered ? (name) => defectFilters.includes(name) : undefined
     });
-    const trendRows = computeTrendDefectRates(
-      Object.entries(trendCounts).map(([name, value]) => ({ name, value })),
-      trendInspection
-    );
 
     xml += ` <Worksheet ss:Name="Trend Defect">
   <Table>
@@ -935,7 +920,7 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
       xml += `   <Row ss:Height="20">
     <Cell ss:StyleID="Cell"><Data ss:Type="String">${escapeXml(r.label)}</Data></Cell>
     <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${r.qty}</Data></Cell>
-    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${trendInspection}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${r.inspection}</Data></Cell>
     <Cell ss:StyleID="CellRight"><Data ss:Type="String">${r.rate.toFixed(r.rate > 0 && r.rate < 1 ? 2 : 1).replace('.', ',')}%</Data></Cell>
    </Row>
 `;

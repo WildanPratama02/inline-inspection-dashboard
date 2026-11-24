@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TREND_DEFECT_GROUPS, computeTrendDefectRates, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
+import { TREND_DEFECT_GROUPS, computeTrendDefectFromRows, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
 
 test('groups only the supported T1QM inspection types', () => {
   for (const type of ['T1QM 1', 'T1QM 2', 'T1QM 3']) {
@@ -87,13 +87,18 @@ test('groups contamination and over cementing as Soiling, bonding as Bonding', (
   assert.equal(groups[1].items[0].name, 'BONDING GAP (>4mm)');
 });
 
-test('computes trend defect rate as qty defect / qty inspection', () => {
-  const rates = computeTrendDefectRates([
-    { name: 'CONTAMINATION (Stains)', value: 50 },
-    { name: 'BONDING GAP (<=4mm)', value: 25 },
-  ], 1000);
-  assert.deepEqual(rates.map((r) => [r.label, r.qty, r.rate]), [['Soiling', 50, 5], ['Bonding', 25, 2.5]]);
-  assert.deepEqual(computeTrendDefectRates([{ name: 'BONDING GAP', value: 3 }], 0).map((r) => r.rate), [0, 0]);
+test('trend defect rate divides by the inspection qty of rows that have the group defect', () => {
+  const rows = [
+    { sample_lot: 125, defect_name_1: 'BONDING GAP', qty_defect_1: 4, defect_name_2: 'CONTAMINATION', qty_defect_2: 1 },
+    { sample_lot: 200, defect_name_1: 'BONDING GAP (<=4mm)', qty_defect_1: 2 },
+    { sample_lot: 300, defect_name_1: 'OVER CEMENTING', qty_defect_1: 3 },
+    { sample_lot: 500, defect_name_1: 'OFF CENTER', qty_defect_1: 9 },
+  ];
+  const res = computeTrendDefectFromRows(rows, { inspectionKey: 'sample_lot' });
+  assert.deepEqual(res.map((r) => [r.label, r.qty, r.inspection]), [['Soiling', 4, 425], ['Bonding', 6, 325]]);
+  assert.equal(res[1].rate, (6 / 325) * 100);
+  const filtered = computeTrendDefectFromRows(rows, { inspectionKey: 'sample_lot', includeDefect: (n) => n === 'BONDING GAP' });
+  assert.deepEqual(filtered.map((r) => [r.qty, r.inspection, r.rate]), [[0, 0, 0], [4, 125, 3.2]]);
 });
 
 test('builds round percent ticks for the trend chart', () => {

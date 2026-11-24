@@ -315,17 +315,38 @@ export const groupTrendDefects = (defects = []) => TREND_DEFECT_GROUPS.map((grou
   return { key: group.key, label: group.label, total: items.reduce((sum, d) => sum + d.value, 0), items };
 });
 
-// Trend Defect bar data: defect qty of each group as a percentage of qty inspection.
-// defects: [{ name, value }], qtyInspection: number
-// → [{ key, label, qty, rate }]  (rate in %, 0 when qtyInspection is 0)
-export const computeTrendDefectRates = (defects = [], qtyInspection = 0) => {
-  const inspection = Number(qtyInspection) || 0;
-  return groupTrendDefects(defects).map((g) => ({
-    key: g.key,
-    label: g.label,
-    qty: g.total,
-    rate: inspection > 0 ? (g.total / inspection) * 100 : 0,
-  }));
+// Trend Defect bar data, computed from inspection rows.
+// For each group (Soiling / Bonding):
+//   qty        = sum of that group's defect qty
+//   inspection = sum of inspectionKey (qty_inspection, or sample_lot for CFA) over the
+//                rows that contain at least one defect of that group
+//   rate       = qty / inspection * 100
+// Example (CFA, F2-4, 15-21 Nov 2026): Bonding inspection = 830, Soiling = 1205 sample lot.
+// includeDefect(name) optionally limits the defects (dashboard Defect Name filter).
+export const computeTrendDefectFromRows = (rows = [], { inspectionKey, includeDefect } = {}) => {
+  const probe = buildKeyProbe(rows);
+  const slots = [];
+  for (let i = 1; i <= 25; i++) {
+    const nameKey = findKey(probe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+    const qtyKey = findKey(probe, `qty_defect_${i}`, `qty defect ${i}`, `qtydefect${i}`);
+    if (nameKey && qtyKey) slots.push([nameKey, qtyKey]);
+  }
+  const totals = TREND_DEFECT_GROUPS.map((g) => ({ key: g.key, label: g.label, qty: 0, inspection: 0 }));
+  rows.forEach((row) => {
+    const hit = new Set();
+    slots.forEach(([nameKey, qtyKey]) => {
+      const name = String(row[nameKey] || '').trim();
+      const qty = parseNumber(row[qtyKey]);
+      if (!name || name === '-' || qty <= 0) return;
+      if (includeDefect && !includeDefect(name)) return;
+      TREND_DEFECT_GROUPS.forEach((g, idx) => {
+        if (g.match(name)) { totals[idx].qty += qty; hit.add(idx); }
+      });
+    });
+    const inspection = inspectionKey ? parseNumber(row[inspectionKey]) : 0;
+    hit.forEach((idx) => { totals[idx].inspection += inspection; });
+  });
+  return totals.map((t) => ({ ...t, rate: t.inspection > 0 ? (t.qty / t.inspection) * 100 : 0 }));
 };
 
 // Y axis for the Trend Defect % chart: a round max and evenly spaced ticks (max 4 steps)

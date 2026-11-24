@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -403,6 +403,8 @@ const PsiEmailExportView = ({
 }) => {
   const firstItem = rawData[0] || {};
   const factoryKey = findKey(firstItem, 'factory', 'building') || 'factory';
+  // Trend Defect denominator: qty inspection of the rows that contain the group's defect
+  const trendInspectionKey = findKey(buildKeyProbe(rawData), 'qty_inspection', 'qty inspection');
   const modelKey = findKey(firstItem, 'model') || 'model';
   const poKey = findKey(firstItem, 'po') || 'po';
   const crdKey = findKey(firstItem, 'crd') || 'crd';
@@ -753,7 +755,7 @@ const PsiEmailExportView = ({
 
             {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectChart defects={overallAllDefects} qtyInspection={overallStats.qtyInspection} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(psiData, { inspectionKey: trendInspectionKey })} />
             </div>
 
             {/* RFT BY DATE Chart */}
@@ -1283,7 +1285,7 @@ const PsiEmailExportView = ({
               </div>
 
               {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectChart defects={fItem.allDefects} qtyInspection={fItem.stats.qtyInspection} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey })} />
 
               {/* Bottom Area: RFT BY DATE Chart */}
               <div
