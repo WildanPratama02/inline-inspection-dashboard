@@ -1,4 +1,4 @@
-import { buildKeyProbe, findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, computeTrendDefectRates, findKey, parseNumber, parsePercent } from './dataUtils.js';
 import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 
 const escapeXml = (unsafe) => {
@@ -892,6 +892,58 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
 
   xml += `  </Table>
  </Worksheet>\n`;
+
+  // --- Trend Defect: Soiling / Bonding as % of qty inspection (same as the dashboard chart) ---
+  {
+    const trendCounts = {};
+    let trendInspection = 0;
+    // Same denominator as the dashboard QTY INSPECTION KPI (CFA shows sample lot)
+    const sampleLotKey = activeTab === 'CFA' ? findKey(firstItem, 'sample_lot', 'sample lot') : null;
+    const trendInsKey = sampleLotKey || qtyInsKey;
+    rows.forEach(item => {
+      trendInspection += trendInsKey ? parseNumber(item[trendInsKey]) : 0;
+      for (let i = 0; i < 25; i++) {
+        const nameKey = defectNameKeys[i];
+        const qtyKey = qtyDefectKeys[i];
+        if (!nameKey || !qtyKey) continue;
+        const dName = String(item[nameKey] || '').trim();
+        const dQty = parseNumber(item[qtyKey]);
+        if (!dName || dName === '-' || dQty <= 0) continue;
+        if (isDefectFiltered && !defectFilters.includes(dName)) continue;
+        trendCounts[dName] = (trendCounts[dName] || 0) + dQty;
+      }
+    });
+    const trendRows = computeTrendDefectRates(
+      Object.entries(trendCounts).map(([name, value]) => ({ name, value })),
+      trendInspection
+    );
+
+    xml += ` <Worksheet ss:Name="Trend Defect">
+  <Table>
+   <Column ss:Width="110"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="100"/>
+   <Column ss:Width="90"/>
+   <Row ss:Height="25" ss:StyleID="Header">
+    <Cell><Data ss:Type="String">Trend Defect</Data></Cell>
+    <Cell><Data ss:Type="String">Qty Defect</Data></Cell>
+    <Cell><Data ss:Type="String">${sampleLotKey ? 'Sample Lot' : 'Qty Inspection'}</Data></Cell>
+    <Cell><Data ss:Type="String">% Defect</Data></Cell>
+   </Row>
+`;
+    trendRows.forEach(r => {
+      xml += `   <Row ss:Height="20">
+    <Cell ss:StyleID="Cell"><Data ss:Type="String">${escapeXml(r.label)}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${r.qty}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${trendInspection}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="String">${r.rate.toFixed(r.rate > 0 && r.rate < 1 ? 2 : 1).replace('.', ',')}%</Data></Cell>
+   </Row>
+`;
+    });
+    xml += `  </Table>
+ </Worksheet>
+`;
+  }
 
   // --- Sheet 3: Defect Filter Summary ---
   if (isDefectFiltered) {

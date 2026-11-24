@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import KPIBox from './KPIBox';
 import DefectChart from './DefectChart';
-import TrendDefectTable from './TrendDefectTable';
+import TrendDefectChart from './TrendDefectChart';
 import DefectImages from './DefectImages';
 import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
@@ -333,6 +333,9 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
   const defectStats = useMemo(() => allDefectStats.slice(0, 5), [allDefectStats]);
 
+  // Trend Defect denominator: CFA = Sample Lot (Qty Defect / Sample Lot), others = Qty Inspection
+  const trendQtyInspection = isCfa ? kpis.sampleLot : kpis.qtyInspection;
+
   const defectImages = useMemo(() => {
     // If pre-loaded images are provided (PDF export), use them directly
     if (preloadedImages && preloadedImages.length > 0) {
@@ -563,9 +566,12 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
           {isCfa ? (
             <>
-              {/* CFA Report Layout: DefectChart full width */}
-              <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
-                <DefectChart data={defectStats} height={278} />
+              {/* CFA Report Layout: TOP 5 DEFECT + TREND DEFECT side by side */}
+              <div className="flex flex-row gap-2 w-full min-w-0">
+                <div className="industrial-border bg-white/5 pb-2 min-w-0 flex-[3]">
+                  <DefectChart data={defectStats} height={278} />
+                </div>
+                <TrendDefectChart defects={allDefectStats} qtyInspection={trendQtyInspection} denominatorLabel="Sample Lot" height={250} className="min-w-0 flex-[2]" />
               </div>
             </>
           ) : is3rdParty ? (
@@ -574,7 +580,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
                 <DefectChart data={defectStats} height={260} />
               </div>
-              {currentTab === '3rd Party' && <TrendDefectTable defects={allDefectStats} />}
+              <TrendDefectChart defects={allDefectStats} qtyInspection={trendQtyInspection} />
               {/* Building Status Chart */}
               <div className="w-full flex-1 flex flex-col min-h-0">
                 <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
@@ -586,7 +592,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2">
                 <DefectChart data={defectStats} />
               </div>
-              {currentTab === 'PSI LV.2' && <TrendDefectTable defects={allDefectStats} />}
+              {/* PSI LV.1, PSI LV.2, T1QM */}
+              <TrendDefectChart defects={allDefectStats} qtyInspection={trendQtyInspection} />
               <div className="industrial-border bg-white/5 p-3 flex-1 flex flex-col min-h-0">
                 <StatsChart data={data} rawData={rawData} filters={filters} activeTab={currentTab} />
               </div>

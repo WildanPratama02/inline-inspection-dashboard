@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import EmailTrendDefectTable from './EmailTrendDefectTable';
+import EmailTrendDefectChart from './EmailTrendDefectChart';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
@@ -751,9 +751,9 @@ const PsiEmailExportView = ({
               <EmailDefectChart data={overallTopDefects} height={225} />
             </div>
 
-            {/* TREND DEFECT table — under TOP 5 DEFECT */}
+            {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectTable defects={overallAllDefects} />
+              <EmailTrendDefectChart defects={overallAllDefects} qtyInspection={overallStats.qtyInspection} />
             </div>
 
             {/* RFT BY DATE Chart */}
@@ -1282,8 +1282,8 @@ const PsiEmailExportView = ({
 
               </div>
 
-              {/* TREND DEFECT table — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectTable defects={fItem.allDefects} />
+              {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
+              <EmailTrendDefectChart defects={fItem.allDefects} qtyInspection={fItem.stats.qtyInspection} />
 
               {/* Bottom Area: RFT BY DATE Chart */}
               <div
