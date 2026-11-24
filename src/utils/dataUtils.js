@@ -295,14 +295,15 @@ export const isUsablePhotoUrl = (value) => {
   return true;
 };
 
-// Trend Defect groups for the PSI LV.2 report.
-// SOILING = Contamination defects (m100 defects.ctq_category 'Soiling': every defect
-// whose name contains CONTAMINATION, e.g. D009/D010/D045/D046/D065/D067/D068).
-// BONDING = Bonding gap defects (D082 BONDING GAP >4mm, D083 BONDING GAP <=4mm).
-// Matched by name so it works for both m100 rows and spreadsheet rows.
+// Trend Defect groups (all dashboard tabs except CFA Validation).
+// SOILING = Contamination + over cementing defects:
+//   CONTAMINATION ... (also the CFA sheet typos "CONTAMINATON", "CONTAMINTION", "CONTAMNATION"), OVER CEMENTING /
+//   OVERCEMENT / OVER CEMENTING OR PRIMING, OVERFLOWING CEMENT.
+// BONDING = Bonding defects: BONDING GAP (<=4mm, >4mm, >2mm) and plain BONDING.
+// Delamination is not included. Matched by name so it works for m100 and sheet rows.
 export const TREND_DEFECT_GROUPS = [
-  { key: 'SOILING', label: 'Soiling', match: (name) => /CONTAMINATION/i.test(name) },
-  { key: 'BONDING', label: 'Bonding', match: (name) => /BONDING\s*GAP/i.test(name) },
+  { key: 'SOILING', label: 'Soiling', match: (name) => /CONTAMIN|CONTAMNATION|OVER\s*CEMENT|OVERFLOWING\s*CEMENT/i.test(name) },
+  { key: 'BONDING', label: 'Bonding', match: (name) => /BONDING/i.test(name) },
 ];
 
 // defects: [{ name, value }] → [{ key, label, total, items: [{ name, value }] }]
@@ -313,3 +314,28 @@ export const groupTrendDefects = (defects = []) => TREND_DEFECT_GROUPS.map((grou
     .sort((a, b) => b.value - a.value);
   return { key: group.key, label: group.label, total: items.reduce((sum, d) => sum + d.value, 0), items };
 });
+
+// Trend Defect bar data: defect qty of each group as a percentage of qty inspection.
+// defects: [{ name, value }], qtyInspection: number
+// → [{ key, label, qty, rate }]  (rate in %, 0 when qtyInspection is 0)
+export const computeTrendDefectRates = (defects = [], qtyInspection = 0) => {
+  const inspection = Number(qtyInspection) || 0;
+  return groupTrendDefects(defects).map((g) => ({
+    key: g.key,
+    label: g.label,
+    qty: g.total,
+    rate: inspection > 0 ? (g.total / inspection) * 100 : 0,
+  }));
+};
+
+// Y axis for the Trend Defect % chart: a round max and evenly spaced ticks (max 4 steps)
+export const trendPercentTicks = (maxRate = 0) => {
+  const target = Math.max(Number(maxRate) || 0, 0.1) * 1.2;
+  const steps = [0.05, 0.1, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50];
+  const step = steps.find((s) => target / s <= 4) || 100;
+  const count = Math.ceil(target / step);
+  return Array.from({ length: count + 1 }, (_, i) => Number((i * step).toFixed(2)));
+};
+
+// "1,25%" style label (Indonesian decimal comma, trailing zeros dropped)
+export const formatAxisPercent = (value) => `${String(Number((Number(value) || 0).toFixed(2))).replace('.', ',')}%`;

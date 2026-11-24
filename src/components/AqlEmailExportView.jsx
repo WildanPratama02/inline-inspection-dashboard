@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import EmailTrendDefectTable from './EmailTrendDefectTable';
+import EmailTrendDefectChart from './EmailTrendDefectChart';
 import {
   BarChart, Bar, Line, ComposedChart, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
@@ -784,9 +784,9 @@ const AqlEmailExportView = ({
               <EmailDefectChart data={overallTopDefects} height={225} />
             </div>
 
-            {/* TREND DEFECT table — under TOP 5 DEFECT */}
+            {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectTable defects={overallAllDefects} />
+              <EmailTrendDefectChart defects={overallAllDefects} qtyInspection={overallStats.qtyChecking} />
             </div>
 
             {/* Building Status Chart */}
@@ -1355,8 +1355,8 @@ const AqlEmailExportView = ({
 
               </div>
 
-              {/* TREND DEFECT table — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectTable defects={fItem.allDefects} />
+              {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
+              <EmailTrendDefectChart defects={fItem.allDefects} qtyInspection={fItem.stats.qtyChecking} />
 
               {/* Bottom Area: Building Status Chart */}
               <div
