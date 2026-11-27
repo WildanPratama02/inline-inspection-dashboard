@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, computeTrendDefectFromRows, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, trendSoilingExclude, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -758,7 +758,7 @@ const PsiEmailExportView = ({
 
             {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(psiData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(psiData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey, soilingExclude: trendSoilingExclude('PSI LV.2') })} />
             </div>
 
             {/* RFT BY DATE Chart */}
@@ -1288,7 +1288,7 @@ const PsiEmailExportView = ({
               </div>
 
               {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey, soilingExclude: trendSoilingExclude('PSI LV.2') })} />
 
               {/* Bottom Area: RFT BY DATE Chart */}
               <div

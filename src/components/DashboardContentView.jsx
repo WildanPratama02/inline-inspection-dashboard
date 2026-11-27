@@ -7,7 +7,7 @@ import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
 import CfaSeverityChart from './CfaSeverityChart';
 import CfaInspectorChart from './CfaInspectorChart';
-import { buildKeyProbe, computeTrendDefectFromRows, usesTotalDefectTrend, findKey, isUsablePhotoUrl, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, trendSoilingExclude, usesTotalDefectTrend, findKey, isUsablePhotoUrl, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
@@ -335,7 +335,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
   // Trend Defect: per group, qty defect / inspection qty of the rows that contain that group's
   // defect. CFA divides by Sample Lot, other tabs by Qty Inspection.
-  // PSI LV.2 and 3rd Party use those rows' Total Defect instead of the group's defect qty.
+  // PSI LV.2 and 3rd Party: each defect slot of the group adds its row's Total Defect / Qty Inspection.
   const trendUsesTotalDefect = usesTotalDefectTrend(currentTab);
   const trendRows = useMemo(() => {
     const probe = buildKeyProbe(data || [], rawData || []);
@@ -347,8 +347,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
     const includeDefect = defectFilter
       ? (name) => defectFilter.includes(isT1qm ? normalizeDefectName(name) : name.trim())
       : undefined;
-    return computeTrendDefectFromRows(data || [], { inspectionKey, totalDefectKey, includeDefect });
-  }, [data, rawData, filters, isCfa, isT1qm, trendUsesTotalDefect]);
+    return computeTrendDefectFromRows(data || [], { inspectionKey, totalDefectKey, soilingExclude: trendSoilingExclude(currentTab), includeDefect });
+  }, [data, rawData, filters, isCfa, isT1qm, trendUsesTotalDefect, currentTab]);
   const trendNumeratorLabel = trendUsesTotalDefect ? 'Total Defect' : 'Qty Defect';
 
   const defectImages = useMemo(() => {
