@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TREND_DEFECT_GROUPS, computeTrendDefectFromRows, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
+import { TREND_DEFECT_GROUPS, computeTrendDefectFromRows, usesTotalDefectTrend, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
 
 test('groups only the supported T1QM inspection types', () => {
   for (const type of ['T1QM 1', 'T1QM 2', 'T1QM 3']) {
@@ -99,6 +99,22 @@ test('trend defect rate divides by the inspection qty of rows that have the grou
   assert.equal(res[1].rate, (6 / 325) * 100);
   const filtered = computeTrendDefectFromRows(rows, { inspectionKey: 'sample_lot', includeDefect: (n) => n === 'BONDING GAP' });
   assert.deepEqual(filtered.map((r) => [r.qty, r.inspection, r.rate]), [[0, 0, 0], [4, 125, 3.2]]);
+});
+
+test('trend defect rate uses the Total Defect of rows that have the group defect (PSI LV.2 / 3rd Party)', () => {
+  // 3rd Party, 15-21 Nov 2026: F3-13 Bonding = 18 / 80 = 22,5%; F1-4 Bonding = 13 / 125 = 10,4%
+  const rows = [
+    { qty_inspection: 80, total_defect: 18, defect_name_1: 'BONDING GAP', qty_defect_1: 4, defect_name_2: 'OFF CENTER', qty_defect_2: 14 },
+    { qty_inspection: 125, total_defect: 13, defect_name_1: 'BONDING GAP (<=4mm)', qty_defect_1: 3, defect_name_2: 'CONTAMINATION', qty_defect_2: 2 },
+    { qty_inspection: 125, total_defect: 9, defect_name_1: 'CONTAMINATION', qty_defect_1: 3 },
+    { qty_inspection: 500, total_defect: 40, defect_name_1: 'OFF CENTER', qty_defect_1: 40 },
+  ];
+  const res = computeTrendDefectFromRows(rows, { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect' });
+  assert.deepEqual(res.map((r) => [r.label, r.qty, r.inspection]), [['Soiling', 22, 250], ['Bonding', 31, 205]]);
+  const onlyF313 = computeTrendDefectFromRows(rows.slice(0, 1), { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect' });
+  assert.equal(onlyF313[1].rate, 22.5);
+  assert.equal(usesTotalDefectTrend('PSI LV.2') && usesTotalDefectTrend('3rd Party'), true);
+  assert.equal(usesTotalDefectTrend('CFA') || usesTotalDefectTrend('PSI LV.1') || usesTotalDefectTrend('T1QM'), false);
 });
 
 test('builds round percent ticks for the trend chart', () => {

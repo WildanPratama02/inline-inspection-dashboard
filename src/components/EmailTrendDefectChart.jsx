@@ -22,7 +22,7 @@ const EmailTrendTick = ({ x, y, payload, rows }) => {
 };
 
 // TREND DEFECT bar chart for the email PDF exports (PSI LV.2, AQL 3rd Party):
-// Soiling / Bonding as defect qty / qty inspection (%).
+// Soiling / Bonding as Total Defect / qty inspection (%).
 // rows: computeTrendDefectFromRows() output — [{ key, label, qty, inspection, rate }]
 const EmailTrendDefectChart = ({ rows = [], height = 170 }) => {
   const maxRate = Math.max(...rows.map((r) => r.rate), 0);
@@ -39,7 +39,7 @@ const EmailTrendDefectChart = ({ rows = [], height = 170 }) => {
         TREND DEFECT
       </div>
       <div style={{ fontSize: '8.5px', color: '#78350f', textAlign: 'center', margin: '3px 0 2px' }}>
-        % Defect = Qty Defect / Qty Inspection
+        % Defect = Total Defect / Qty Inspection
       </div>
       <div style={{ width: '100%', height: `${height}px` }}>
         <ResponsiveContainer width="100%" height="100%">

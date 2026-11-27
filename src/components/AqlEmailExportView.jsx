@@ -508,7 +508,10 @@ const AqlEmailExportView = ({
   // 2. Compute Overall Data
   const overallStats = useMemo(() => compute3rdPartyStats(aqlData, rawData), [aqlData, rawData]);
   // Trend Defect denominator: qty inspection of the rows that contain the group's defect
-  const trendInspectionKey = findKey(buildKeyProbe(rawData), 'qty_inspection', 'qty inspection');
+  const trendProbe = buildKeyProbe(rawData);
+  const trendInspectionKey = findKey(trendProbe, 'qty_inspection', 'qty inspection');
+  // Trend Defect numerator = Total Defect of the rows that contain the group's defect
+  const trendTotalDefectKey = findKey(trendProbe, 'total_defect', 'total defect');
   const overallLimits = useMemo(() => getAqlLimits(overallStats.qtyChecking), [overallStats.qtyChecking]);
   const overallAllDefects = useMemo(() => computeAllDefects(aqlData, rawData), [aqlData, rawData]);
   const overallTopDefects = useMemo(() => overallAllDefects.slice(0, 5), [overallAllDefects]);
@@ -788,7 +791,7 @@ const AqlEmailExportView = ({
 
             {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(aqlData, { inspectionKey: trendInspectionKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(aqlData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
             </div>
 
             {/* Building Status Chart */}
@@ -1358,7 +1361,7 @@ const AqlEmailExportView = ({
               </div>
 
               {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
 
               {/* Bottom Area: Building Status Chart */}
               <div

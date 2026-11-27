@@ -1,4 +1,4 @@
-import { buildKeyProbe, computeTrendDefectFromRows, findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, computeTrendDefectFromRows, usesTotalDefectTrend, findKey, parseNumber, parsePercent } from './dataUtils.js';
 import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 
 const escapeXml = (unsafe) => {
@@ -896,10 +896,13 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   // --- Trend Defect: Soiling / Bonding (same rule as the dashboard chart) ---
   // Per group: qty defect / inspection qty of the rows that contain that group's defect.
   // CFA divides by sample lot, other tabs by qty inspection.
+  // PSI LV.2 and 3rd Party use those rows' Total Defect instead of the group's defect qty.
   {
     const sampleLotKey = activeTab === 'CFA' ? findKey(firstItem, 'sample_lot', 'sample lot') : null;
+    const trendTotalDefectKey = usesTotalDefectTrend(activeTab) ? findKey(firstItem, 'total_defect', 'total defect') : undefined;
     const trendRows = computeTrendDefectFromRows(rows, {
       inspectionKey: sampleLotKey || qtyInsKey,
+      totalDefectKey: trendTotalDefectKey,
       includeDefect: isDefectFiltered ? (name) => defectFilters.includes(name) : undefined
     });
 
@@ -911,7 +914,7 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
    <Column ss:Width="90"/>
    <Row ss:Height="25" ss:StyleID="Header">
     <Cell><Data ss:Type="String">Trend Defect</Data></Cell>
-    <Cell><Data ss:Type="String">Qty Defect</Data></Cell>
+    <Cell><Data ss:Type="String">${trendTotalDefectKey ? 'Total Defect' : 'Qty Defect'}</Data></Cell>
     <Cell><Data ss:Type="String">${sampleLotKey ? 'Sample Lot' : 'Qty Inspection'}</Data></Cell>
     <Cell><Data ss:Type="String">% Defect</Data></Cell>
    </Row>
