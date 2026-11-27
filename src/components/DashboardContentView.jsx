@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import KPIBox from './KPIBox';
 import DefectChart from './DefectChart';
-import TrendDefectTable from './TrendDefectTable';
+import TrendDefectChart from './TrendDefectChart';
 import DefectImages from './DefectImages';
 import StatsChart from './StatsChart';
 import BuildingStatusChart from './BuildingStatusChart';
 import CfaSeverityChart from './CfaSeverityChart';
 import CfaInspectorChart from './CfaInspectorChart';
-import { buildKeyProbe, findKey, isUsablePhotoUrl, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, usesTotalDefectTrend, findKey, isUsablePhotoUrl, getT1qmStatusCounts, normalizeDefectName, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, activeTab }) => {
   const currentTab = activeTab || (filters && filters.activeTab) || (filters && filters.inspectorType && filters.inspectorType.includes('3rd Party') ? '3rd Party' : filters && filters.inspectorType && filters.inspectorType.includes('CFA') ? 'CFA' : 'PSI');
@@ -333,6 +333,24 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
   const defectStats = useMemo(() => allDefectStats.slice(0, 5), [allDefectStats]);
 
+  // Trend Defect: per group, qty defect / inspection qty of the rows that contain that group's
+  // defect. CFA divides by Sample Lot, other tabs by Qty Inspection.
+  // PSI LV.2 and 3rd Party use those rows' Total Defect instead of the group's defect qty.
+  const trendUsesTotalDefect = usesTotalDefectTrend(currentTab);
+  const trendRows = useMemo(() => {
+    const probe = buildKeyProbe(data || [], rawData || []);
+    const inspectionKey = isCfa
+      ? findKey(probe, 'sample_lot', 'sample lot')
+      : findKey(probe, 'qty_inspection', 'qty inspection');
+    const totalDefectKey = trendUsesTotalDefect ? findKey(probe, 'total_defect', 'total defect') : undefined;
+    const defectFilter = filters && filters.defectName && filters.defectName.length > 0 ? filters.defectName : null;
+    const includeDefect = defectFilter
+      ? (name) => defectFilter.includes(isT1qm ? normalizeDefectName(name) : name.trim())
+      : undefined;
+    return computeTrendDefectFromRows(data || [], { inspectionKey, totalDefectKey, includeDefect });
+  }, [data, rawData, filters, isCfa, isT1qm, trendUsesTotalDefect]);
+  const trendNumeratorLabel = trendUsesTotalDefect ? 'Total Defect' : 'Qty Defect';
+
   const defectImages = useMemo(() => {
     // If pre-loaded images are provided (PDF export), use them directly
     if (preloadedImages && preloadedImages.length > 0) {
@@ -563,9 +581,12 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
 
           {isCfa ? (
             <>
-              {/* CFA Report Layout: DefectChart full width */}
-              <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
-                <DefectChart data={defectStats} height={278} />
+              {/* CFA Report Layout: TOP 5 DEFECT + TREND DEFECT side by side */}
+              <div className="flex flex-row gap-2 w-full min-w-0">
+                <div className="industrial-border bg-white/5 pb-2 min-w-0 flex-[3]">
+                  <DefectChart data={defectStats} height={278} />
+                </div>
+                <TrendDefectChart rows={trendRows} denominatorLabel="Sample Lot" height={250} className="min-w-0 flex-[2]" />
               </div>
             </>
           ) : is3rdParty ? (
@@ -574,6 +595,7 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2 w-full min-w-0">
                 <DefectChart data={defectStats} height={260} />
               </div>
+              <TrendDefectChart rows={trendRows} numeratorLabel={trendNumeratorLabel} />
               {/* Building Status Chart */}
               <div className="w-full flex-1 flex flex-col min-h-0">
                 <BuildingStatusChart data={data} rawData={rawData} activeTab={currentTab} />
@@ -585,7 +607,8 @@ const DashboardContentView = ({ data, rawData, filters, id, preloadedImages, act
               <div className="industrial-border bg-white/5 pb-2">
                 <DefectChart data={defectStats} />
               </div>
-              {currentTab === 'PSI LV.2' && <TrendDefectTable defects={allDefectStats} />}
+              {/* PSI LV.1, PSI LV.2, T1QM */}
+              <TrendDefectChart rows={trendRows} numeratorLabel={trendNumeratorLabel} />
               <div className="industrial-border bg-white/5 p-3 flex-1 flex flex-col min-h-0">
                 <StatsChart data={data} rawData={rawData} filters={filters} activeTab={currentTab} />
               </div>

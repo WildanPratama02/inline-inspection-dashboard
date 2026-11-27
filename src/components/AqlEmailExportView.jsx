@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
+import EmailTrendDefectChart from './EmailTrendDefectChart';
 import {
   BarChart, Bar, Line, ComposedChart, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -239,9 +240,9 @@ export const compute3rdPartyStats = (data, rawData) => {
 };
 
 /**
- * Compute Top 5 defect stats
+ * Compute every defect name with its total qty (sorted desc)
  */
-export const computeTopDefects = (data, rawData) => {
+export const computeAllDefects = (data, rawData) => {
   if (!data || data.length === 0) return [];
   const firstItem = rawData[0] || {};
   const keyProbe = buildKeyProbe(data, rawData);
@@ -288,9 +289,13 @@ export const computeTopDefects = (data, rawData) => {
 
   return Object.entries(counts)
     .map(([name, value]) => ({ name, value, url: imageSelections[name]?.url || null }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+    .sort((a, b) => b.value - a.value);
 };
+
+/**
+ * Compute Top 5 defect stats
+ */
+export const computeTopDefects = (data, rawData) => computeAllDefects(data, rawData).slice(0, 5);
 
 /**
  * Compute Building Status Chart Data (Pass, Fail, Total, PassRate)
@@ -502,8 +507,14 @@ const AqlEmailExportView = ({
 
   // 2. Compute Overall Data
   const overallStats = useMemo(() => compute3rdPartyStats(aqlData, rawData), [aqlData, rawData]);
+  // Trend Defect denominator: qty inspection of the rows that contain the group's defect
+  const trendProbe = buildKeyProbe(rawData);
+  const trendInspectionKey = findKey(trendProbe, 'qty_inspection', 'qty inspection');
+  // Trend Defect numerator = Total Defect of the rows that contain the group's defect
+  const trendTotalDefectKey = findKey(trendProbe, 'total_defect', 'total defect');
   const overallLimits = useMemo(() => getAqlLimits(overallStats.qtyChecking), [overallStats.qtyChecking]);
-  const overallTopDefects = useMemo(() => computeTopDefects(aqlData, rawData), [aqlData, rawData]);
+  const overallAllDefects = useMemo(() => computeAllDefects(aqlData, rawData), [aqlData, rawData]);
+  const overallTopDefects = useMemo(() => overallAllDefects.slice(0, 5), [overallAllDefects]);
   const overallBuildingChartData = useMemo(() => computeBuildingStatusData(aqlData, rawData), [aqlData, rawData]);
 
   // Overall Factory List Text
@@ -521,7 +532,8 @@ const AqlEmailExportView = ({
       const fData = aqlData.filter(item => String(item[factoryKey] || '').trim() === f);
       const stats = compute3rdPartyStats(fData, rawData);
       const limits = getAqlLimits(stats.qtyChecking);
-      const topDefects = computeTopDefects(fData, rawData);
+      const allDefects = computeAllDefects(fData, rawData);
+      const topDefects = allDefects.slice(0, 5);
       const buildingChartData = computeBuildingStatusData(fData, rawData);
 
       // Metadata
@@ -557,6 +569,7 @@ const AqlEmailExportView = ({
         data: fData,
         stats,
         limits,
+        allDefects,
         topDefects,
         buildingChartData,
         images,
@@ -774,6 +787,11 @@ const AqlEmailExportView = ({
                 TOP 5 DEFECT
               </div>
               <EmailDefectChart data={overallTopDefects} height={225} />
+            </div>
+
+            {/* TREND DEFECT chart — under TOP 5 DEFECT */}
+            <div style={{ marginTop: '8px' }}>
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(aqlData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
             </div>
 
             {/* Building Status Chart */}
@@ -1341,6 +1359,9 @@ const AqlEmailExportView = ({
                 </div>
 
               </div>
+
+              {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
 
               {/* Bottom Area: Building Status Chart */}
               <div

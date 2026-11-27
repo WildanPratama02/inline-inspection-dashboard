@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
+import { TREND_DEFECT_GROUPS, computeTrendDefectFromRows, usesTotalDefectTrend, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
 
 test('groups only the supported T1QM inspection types', () => {
   for (const type of ['T1QM 1', 'T1QM 2', 'T1QM 3']) {
@@ -70,15 +70,72 @@ test('skips AppSheet photo links with an empty fileName', () => {
   assert.equal(isUsablePhotoUrl(''), false);
 });
 
-test('groups contamination defects as Soiling and bonding gap defects as Bonding', () => {
+test('groups contamination and over cementing as Soiling, bonding as Bonding', () => {
   const groups = groupTrendDefects([
     { name: 'CONTAMINATION (STAINS, CEMENT, etc.) (>2 dots, >=2mm)', value: 60 },
-    { name: 'LACE / VELCRO / SPEED LACE : CONTAMINATION', value: 4 },
+    { name: 'CONTAMINATON', value: 1 },
+    { name: 'OVER CEMENTING OR PRIMING ( YELLOWING OR DISCOLORATION)', value: 39 },
+    { name: 'OVERCEMENT', value: 5 },
+    { name: 'OVERFLOWING CEMENT (>0.5MM)', value: 2 },
     { name: 'BONDING GAP (<=4mm)', value: 55 },
     { name: 'BONDING GAP (>4mm)', value: 70 },
-    { name: 'OVER CEMENTING OR PRIMING ( YELLOWING OR DISCOLORATION)', value: 39 },
+    { name: 'BONDING GAP', value: 10 },
     { name: 'COMPONENTS DELAMINATION (>4mm length and depth)', value: 3 },
+    { name: 'POOR CEMENTING SOCKLINER TO INSOLE BOARD', value: 4 },
   ]);
-  assert.deepEqual(groups.map((g) => [g.label, g.total, g.items.length]), [['Soiling', 64, 2], ['Bonding', 125, 2]]);
+  assert.deepEqual(groups.map((g) => [g.label, g.total, g.items.length]), [['Soiling', 107, 5], ['Bonding', 135, 3]]);
   assert.equal(groups[1].items[0].name, 'BONDING GAP (>4mm)');
+});
+
+test('trend defect rate divides by the inspection qty of rows that have the group defect', () => {
+  const rows = [
+    { sample_lot: 125, defect_name_1: 'BONDING GAP', qty_defect_1: 4, defect_name_2: 'CONTAMINATION', qty_defect_2: 1 },
+    { sample_lot: 200, defect_name_1: 'BONDING GAP (<=4mm)', qty_defect_1: 2 },
+    { sample_lot: 300, defect_name_1: 'OVER CEMENTING', qty_defect_1: 3 },
+    { sample_lot: 500, defect_name_1: 'OFF CENTER', qty_defect_1: 9 },
+  ];
+  const res = computeTrendDefectFromRows(rows, { inspectionKey: 'sample_lot' });
+  assert.deepEqual(res.map((r) => [r.label, r.qty, r.inspection]), [['Soiling', 4, 425], ['Bonding', 6, 325]]);
+  assert.equal(res[1].rate, (6 / 325) * 100);
+  const filtered = computeTrendDefectFromRows(rows, { inspectionKey: 'sample_lot', includeDefect: (n) => n === 'BONDING GAP' });
+  assert.deepEqual(filtered.map((r) => [r.qty, r.inspection, r.rate]), [[0, 0, 0], [4, 125, 3.2]]);
+});
+
+test('trend defect rate uses the Total Defect of rows that have the group defect (PSI LV.2 / 3rd Party)', () => {
+  // 3rd Party, 15-21 Nov 2026: F3-13 Bonding = 18 / 80 = 22,5%; F1-4 Bonding = 13 / 125 = 10,4%
+  const rows = [
+    { qty_inspection: 80, total_defect: 18, defect_name_1: 'BONDING GAP', qty_defect_1: 4, defect_name_2: 'OFF CENTER', qty_defect_2: 14 },
+    { qty_inspection: 125, total_defect: 13, defect_name_1: 'BONDING GAP (<=4mm)', qty_defect_1: 3, defect_name_2: 'CONTAMINATION', qty_defect_2: 2 },
+    { qty_inspection: 125, total_defect: 9, defect_name_1: 'CONTAMINATION', qty_defect_1: 3 },
+    { qty_inspection: 500, total_defect: 40, defect_name_1: 'OFF CENTER', qty_defect_1: 40 },
+  ];
+  const res = computeTrendDefectFromRows(rows, { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect' });
+  assert.deepEqual(res.map((r) => [r.label, r.qty, r.inspection]), [['Soiling', 22, 250], ['Bonding', 31, 205]]);
+  const onlyF313 = computeTrendDefectFromRows(rows.slice(0, 1), { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect' });
+  assert.equal(onlyF313[1].rate, 22.5);
+  assert.equal(usesTotalDefectTrend('PSI LV.2') && usesTotalDefectTrend('3rd Party'), true);
+  assert.equal(usesTotalDefectTrend('CFA') || usesTotalDefectTrend('PSI LV.1') || usesTotalDefectTrend('T1QM'), false);
+});
+
+test('builds round percent ticks for the trend chart', () => {
+  assert.deepEqual(trendPercentTicks(10.1), [0, 5, 10, 15]);
+  assert.deepEqual(trendPercentTicks(1.6), [0, 0.5, 1, 1.5, 2]);
+  assert.deepEqual(trendPercentTicks(0), [0, 0.05, 0.1, 0.15]);
+  assert.equal(formatAxisPercent(0.25), '0,25%');
+  assert.equal(formatAxisPercent(15), '15%');
+});
+
+test('trend groups follow the CFA defect filter lists (Bonding / Soiling)', () => {
+  const groupOf = (name) => (TREND_DEFECT_GROUPS.find((g) => g.match(name)) || {}).key || null;
+  ['BONDING', 'BONDING GAP', 'BONDING GAP (<=4mm)', 'BONDING GAP (>4mm)']
+    .forEach((name) => assert.equal(groupOf(name), 'BONDING', name));
+  [
+    'CONTAMINATION', 'CONTAMINATION (STAINS, CEMENT, etc.) (<2 dots, <2mm)',
+    'CONTAMINATION (Stains, printing mark) (<2 dots, <2mm)', 'CONTAMINATION (Stains, printing mark) (>2 dots, >=2mm)',
+    'CONTAMINATION 3 STRIPES', 'CONTAMINATION BOTTOM (Stains) (<2 dots, <2mm)', 'CONTAMINATION O/S', 'CONTAMINTION',
+    'OVER CEMENTING', 'OVER CEMENTING OR PRIMING (<4mm length, <2mm width)', 'OVERCEMENTING',
+    'CONTAMNATION', 'CONTAMNATION O/S',
+  ].forEach((name) => assert.equal(groupOf(name), 'SOILING', name));
+  ['BEDA WARNA EYESTAY', 'DAMAGE MATERIAL', 'DELAMINATION NO SEW', 'OFF CENTER', 'PADING SHAPE']
+    .forEach((name) => assert.equal(groupOf(name), null, name));
 });

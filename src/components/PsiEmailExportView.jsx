@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
+import EmailTrendDefectChart from './EmailTrendDefectChart';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, findKey, groupTrendDefects, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -394,66 +395,6 @@ const EmailRftDateChart = ({ data, height = 150 }) => {
 };
 
 /* ─── Main PsiEmailExportView Component ─── */
-// TREND DEFECT table (Soiling = Contamination, Bonding = Bonding gap) — light email theme
-// Yellow-orange theme so the Trend Defect table stands out from the other panels
-const TREND_COLORS = { SOILING: '#a16207', BONDING: '#c2410c' };
-const EmailTrendDefectTable = ({ defects = [] }) => {
-  const groups = groupTrendDefects(defects);
-  const cell = { padding: '4px 6px', borderBottom: '1px solid #fde68a' };
-  return (
-    <div style={{ backgroundColor: '#fffbeb', border: '2px solid #f59e0b', padding: '8px', borderRadius: '3px' }}>
-      <div
-        style={{
-          fontSize: '11px', fontWeight: 900, color: '#000000', textAlign: 'center', textTransform: 'uppercase',
-          letterSpacing: '1px', background: 'linear-gradient(90deg, #facc15, #f97316)', padding: '4px 0',
-          borderRadius: '2px', marginBottom: '6px'
-        }}
-      >
-        TREND DEFECT
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px', color: '#0f172a' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#fde68a', borderBottom: '1px solid #f59e0b' }}>
-            <th style={{ ...cell, textAlign: 'left', fontWeight: 800, fontSize: '9px', width: '90px' }}>TREND DEFECT</th>
-            <th style={{ ...cell, textAlign: 'left', fontWeight: 800, fontSize: '9px' }}>DEFECT NAME</th>
-            <th style={{ ...cell, textAlign: 'right', fontWeight: 800, fontSize: '9px', width: '50px' }}>QTY</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group) => {
-            const rows = group.items.length ? group.items : [{ name: '-', value: 0 }];
-            const color = TREND_COLORS[group.key] || '#0f172a';
-            return (
-              <React.Fragment key={group.key}>
-                {rows.map((item, idx) => (
-                  <tr key={`${group.key}-${item.name}`}>
-                    {idx === 0 && (
-                      <td
-                        rowSpan={rows.length + 1}
-                        style={{ ...cell, fontWeight: 900, color, textTransform: 'uppercase', verticalAlign: 'middle', borderRight: '1px solid #fcd34d', borderBottom: '1px solid #f59e0b' }}
-                      >
-                        {group.label}
-                      </td>
-                    )}
-                    <td style={{ ...cell, fontWeight: 600 }}>{item.name}</td>
-                    <td style={{ ...cell, textAlign: 'right', fontWeight: 800 }}>{formatNumberIndo(item.value)}</td>
-                  </tr>
-                ))}
-                <tr style={{ backgroundColor: '#fed7aa' }}>
-                  <td style={{ ...cell, borderBottom: '1px solid #f59e0b', textAlign: 'right', fontWeight: 800, fontSize: '8.5px', color: '#7c2d12', textTransform: 'uppercase' }}>
-                    TOTAL {group.label}
-                  </td>
-                  <td style={{ ...cell, borderBottom: '1px solid #f59e0b', textAlign: 'right', fontWeight: 900, color }}>{formatNumberIndo(group.total)}</td>
-                </tr>
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
 const PsiEmailExportView = ({
   psiData = [],
   rawData = [],
@@ -462,6 +403,11 @@ const PsiEmailExportView = ({
 }) => {
   const firstItem = rawData[0] || {};
   const factoryKey = findKey(firstItem, 'factory', 'building') || 'factory';
+  // Trend Defect denominator: qty inspection of the rows that contain the group's defect
+  const trendProbe = buildKeyProbe(rawData);
+  const trendInspectionKey = findKey(trendProbe, 'qty_inspection', 'qty inspection');
+  // Trend Defect numerator = Total Defect of the rows that contain the group's defect
+  const trendTotalDefectKey = findKey(trendProbe, 'total_defect', 'total defect');
   const modelKey = findKey(firstItem, 'model') || 'model';
   const poKey = findKey(firstItem, 'po') || 'po';
   const crdKey = findKey(firstItem, 'crd') || 'crd';
@@ -810,9 +756,9 @@ const PsiEmailExportView = ({
               <EmailDefectChart data={overallTopDefects} height={225} />
             </div>
 
-            {/* TREND DEFECT table — under TOP 5 DEFECT */}
+            {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectTable defects={overallAllDefects} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(psiData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
             </div>
 
             {/* RFT BY DATE Chart */}
@@ -1341,8 +1287,8 @@ const PsiEmailExportView = ({
 
               </div>
 
-              {/* TREND DEFECT table — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectTable defects={fItem.allDefects} />
+              {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
 
               {/* Bottom Area: RFT BY DATE Chart */}
               <div

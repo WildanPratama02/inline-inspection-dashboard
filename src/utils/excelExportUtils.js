@@ -1,4 +1,4 @@
-import { buildKeyProbe, findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, computeTrendDefectFromRows, usesTotalDefectTrend, findKey, parseNumber, parsePercent } from './dataUtils.js';
 import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 
 const escapeXml = (unsafe) => {
@@ -892,6 +892,46 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
 
   xml += `  </Table>
  </Worksheet>\n`;
+
+  // --- Trend Defect: Soiling / Bonding (same rule as the dashboard chart) ---
+  // Per group: qty defect / inspection qty of the rows that contain that group's defect.
+  // CFA divides by sample lot, other tabs by qty inspection.
+  // PSI LV.2 and 3rd Party use those rows' Total Defect instead of the group's defect qty.
+  {
+    const sampleLotKey = activeTab === 'CFA' ? findKey(firstItem, 'sample_lot', 'sample lot') : null;
+    const trendTotalDefectKey = usesTotalDefectTrend(activeTab) ? findKey(firstItem, 'total_defect', 'total defect') : undefined;
+    const trendRows = computeTrendDefectFromRows(rows, {
+      inspectionKey: sampleLotKey || qtyInsKey,
+      totalDefectKey: trendTotalDefectKey,
+      includeDefect: isDefectFiltered ? (name) => defectFilters.includes(name) : undefined
+    });
+
+    xml += ` <Worksheet ss:Name="Trend Defect">
+  <Table>
+   <Column ss:Width="110"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="100"/>
+   <Column ss:Width="90"/>
+   <Row ss:Height="25" ss:StyleID="Header">
+    <Cell><Data ss:Type="String">Trend Defect</Data></Cell>
+    <Cell><Data ss:Type="String">${trendTotalDefectKey ? 'Total Defect' : 'Qty Defect'}</Data></Cell>
+    <Cell><Data ss:Type="String">${sampleLotKey ? 'Sample Lot' : 'Qty Inspection'}</Data></Cell>
+    <Cell><Data ss:Type="String">% Defect</Data></Cell>
+   </Row>
+`;
+    trendRows.forEach(r => {
+      xml += `   <Row ss:Height="20">
+    <Cell ss:StyleID="Cell"><Data ss:Type="String">${escapeXml(r.label)}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${r.qty}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="Number">${r.inspection}</Data></Cell>
+    <Cell ss:StyleID="CellRight"><Data ss:Type="String">${r.rate.toFixed(r.rate > 0 && r.rate < 1 ? 2 : 1).replace('.', ',')}%</Data></Cell>
+   </Row>
+`;
+    });
+    xml += `  </Table>
+ </Worksheet>
+`;
+  }
 
   // --- Sheet 3: Defect Filter Summary ---
   if (isDefectFiltered) {
