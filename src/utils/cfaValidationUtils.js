@@ -137,7 +137,7 @@ export const CFA_FULL_NAMES = {
 // BANGKIT is not CFA certified. Exclude these names from CFA validation and exports.
 export const EXCLUDED_CFA_NAMES = [
   'CMA TEST', 'AGIS', 'REKA', 'HILHAM', 'AZZI', 'UUN', 'IDA', 'AZIZAH',
-  'SINTIA', 'ROIS', 'NISMA', 'RISMA', 'BANGKIT', 'DISKA'
+  'SINTIA', 'ROIS', 'NISMA', 'RISMA', 'BANGKIT', 'DISKA', "EVA JULIYANI"
 ];
 
 /**
