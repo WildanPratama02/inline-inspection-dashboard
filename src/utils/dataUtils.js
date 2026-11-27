@@ -319,17 +319,29 @@ export const groupTrendDefects = (defects = []) => TREND_DEFECT_GROUPS.map((grou
 export const TREND_TOTAL_DEFECT_TABS = ['PSI LV.2', '3rd Party'];
 export const usesTotalDefectTrend = (tab) => TREND_TOTAL_DEFECT_TABS.includes(tab);
 
+// Soiling defects left out on the Total Defect tabs, following the Inspection_Performance Cell report:
+// both leave out "LACE / VELCRO / SPEED LACE : CONTAMINATION"; PSI LV.2 also leaves out OVERFLOWING CEMENT.
+const TREND_SOILING_EXCLUDE = {
+  'PSI LV.2': /LACE|OVERFLOWING\s*CEMENT/i,
+  '3rd Party': /LACE/i,
+};
+export const trendSoilingExclude = (tab) => TREND_SOILING_EXCLUDE[tab];
+
 // Trend Defect bar data, computed from inspection rows.
-// For each group (Soiling / Bonding):
-//   qty        = sum of that group's defect qty, or — when totalDefectKey is given — the sum
-//                of totalDefectKey (Total Defect) over the rows that contain that group's defect
+// Default (CFA, PSI LV.1, T1QM), per group (Soiling / Bonding):
+//   qty        = sum of that group's defect qty
 //   inspection = sum of inspectionKey (qty_inspection, or sample_lot for CFA) over the
 //                rows that contain at least one defect of that group
-//   rate       = qty / inspection * 100
+// Total Defect mode (totalDefectKey given — PSI LV.2 / 3rd Party), per group:
+//   every defect slot of the group adds its row's inspectionKey and totalDefectKey, so a row
+//   with 3 Soiling defects counts 3 times (same as the Inspection_Performance Cell report);
+//   soilingExclude (trendSoilingExclude(tab)) drops defect names from Soiling
+// rate = qty / inspection * 100
 // Example (CFA, F2-4, 15-21 Nov 2026): Bonding inspection = 830, Soiling = 1205 sample lot.
-// Example (3rd Party, F3-13, 15-21 Nov 2026, Total Defect): Bonding 18 / 80 = 22,5%.
+// Example (PSI LV.2 Supporting, F4-16, 15-21 Nov 2026): Soiling 456 / 981 = 46,5%.
 // includeDefect(name) optionally limits the defects (dashboard Defect Name filter).
-export const computeTrendDefectFromRows = (rows = [], { inspectionKey, totalDefectKey, includeDefect } = {}) => {
+export const computeTrendDefectFromRows = (rows = [], { inspectionKey, totalDefectKey, soilingExclude, includeDefect } = {}) => {
+  if (totalDefectKey) return computeTotalDefectTrend(rows, { inspectionKey, totalDefectKey, soilingExclude, includeDefect });
   const probe = buildKeyProbe(rows);
   const slots = [];
   for (let i = 1; i <= 25; i++) {
@@ -346,17 +358,36 @@ export const computeTrendDefectFromRows = (rows = [], { inspectionKey, totalDefe
       if (!name || name === '-' || qty <= 0) return;
       if (includeDefect && !includeDefect(name)) return;
       TREND_DEFECT_GROUPS.forEach((g, idx) => {
-        if (g.match(name)) {
-          if (!totalDefectKey) totals[idx].qty += qty;
-          hit.add(idx);
-        }
+        if (g.match(name)) { totals[idx].qty += qty; hit.add(idx); }
       });
     });
     const inspection = inspectionKey ? parseNumber(row[inspectionKey]) : 0;
-    const rowTotalDefect = totalDefectKey ? parseNumber(row[totalDefectKey]) : 0;
-    hit.forEach((idx) => {
-      totals[idx].inspection += inspection;
-      if (totalDefectKey) totals[idx].qty += rowTotalDefect;
+    hit.forEach((idx) => { totals[idx].inspection += inspection; });
+  });
+  return totals.map((t) => ({ ...t, rate: t.inspection > 0 ? (t.qty / t.inspection) * 100 : 0 }));
+};
+
+const computeTotalDefectTrend = (rows, { inspectionKey, totalDefectKey, soilingExclude, includeDefect }) => {
+  const groups = TREND_DEFECT_GROUPS.map((g) => (g.key === 'SOILING' && soilingExclude
+    ? { ...g, match: (name) => g.match(name) && !soilingExclude.test(name) }
+    : g));
+  const probe = buildKeyProbe(rows);
+  const nameKeys = [];
+  for (let i = 1; i <= 25; i++) {
+    const nameKey = findKey(probe, `defect_name_${i}`, `defect name ${i}`, `defectname${i}`);
+    if (nameKey) nameKeys.push(nameKey);
+  }
+  const totals = groups.map((g) => ({ key: g.key, label: g.label, qty: 0, inspection: 0 }));
+  rows.forEach((row) => {
+    const inspection = inspectionKey ? parseNumber(row[inspectionKey]) : 0;
+    const totalDefect = parseNumber(row[totalDefectKey]);
+    nameKeys.forEach((nameKey) => {
+      const name = String(row[nameKey] || '').trim();
+      if (!name || name === '-') return;
+      if (includeDefect && !includeDefect(name)) return;
+      groups.forEach((g, idx) => {
+        if (g.match(name)) { totals[idx].qty += totalDefect; totals[idx].inspection += inspection; }
+      });
     });
   });
   return totals.map((t) => ({ ...t, rate: t.inspection > 0 ? (t.qty / t.inspection) * 100 : 0 }));
