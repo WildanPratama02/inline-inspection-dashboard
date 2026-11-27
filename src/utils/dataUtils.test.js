@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TREND_DEFECT_GROUPS, computeTrendDefectFromRows, usesTotalDefectTrend, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
+import { TREND_DEFECT_GROUPS, computeTrendDefectFromRows, trendSoilingExclude, usesTotalDefectTrend, formatAxisPercent, trendPercentTicks, getInspectorType, groupTrendDefects, isUsablePhotoUrl, getT1qmInspectionTypes, getT1qmStatusCounts, isT1qmDateAnomaly, isT1qmType, matchesT1qmInspectionType, normalizeDefectName, parseNumber } from './dataUtils.js';
 
 test('groups only the supported T1QM inspection types', () => {
   for (const type of ['T1QM 1', 'T1QM 2', 'T1QM 3']) {
@@ -113,6 +113,20 @@ test('trend defect rate uses the Total Defect of rows that have the group defect
   assert.deepEqual(res.map((r) => [r.label, r.qty, r.inspection]), [['Soiling', 22, 250], ['Bonding', 31, 205]]);
   const onlyF313 = computeTrendDefectFromRows(rows.slice(0, 1), { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect' });
   assert.equal(onlyF313[1].rate, 22.5);
+  // Each matching defect slot counts its row again; LACE contamination and OVERFLOWING CEMENT are not Soiling
+  const multi = [
+    {
+      qty_inspection: 327, total_defect: 152,
+      defect_name_1: 'CONTAMINATION BOTTOM (Stains) (<2 dots, <2mm)', defect_name_2: 'OVER CEMENTING OR PRIMING (<4mm length, <2mm width)',
+      defect_name_3: 'CONTAMINATION (Stains, printing mark) (>2 dots, >=2mm)', defect_name_4: 'LACE / VELCRO / SPEED LACE : CONTAMINATION',
+      defect_name_5: 'OVERFLOWING CEMENT (>0.5MM)', defect_name_6: 'BONDING GAP (<=4mm)',
+    },
+  ];
+  const psi = computeTrendDefectFromRows(multi, { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect', soilingExclude: trendSoilingExclude('PSI LV.2') });
+  assert.deepEqual(psi.map((r) => [r.label, r.qty, r.inspection]), [['Soiling', 456, 981], ['Bonding', 152, 327]]);
+  // 3rd Party keeps OVERFLOWING CEMENT in Soiling
+  const party3 = computeTrendDefectFromRows(multi, { inspectionKey: 'qty_inspection', totalDefectKey: 'total_defect', soilingExclude: trendSoilingExclude('3rd Party') });
+  assert.deepEqual(party3.map((r) => [r.qty, r.inspection]), [[608, 1308], [152, 327]]);
   assert.equal(usesTotalDefectTrend('PSI LV.2') && usesTotalDefectTrend('3rd Party'), true);
   assert.equal(usesTotalDefectTrend('CFA') || usesTotalDefectTrend('PSI LV.1') || usesTotalDefectTrend('T1QM'), false);
 });

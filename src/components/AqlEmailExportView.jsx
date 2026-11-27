@@ -4,7 +4,7 @@ import {
   BarChart, Bar, Line, ComposedChart, XAxis, YAxis, CartesianGrid,
   ResponsiveContainer, LabelList
 } from 'recharts';
-import { buildKeyProbe, computeTrendDefectFromRows, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
+import { buildKeyProbe, computeTrendDefectFromRows, trendSoilingExclude, findKey, isUsablePhotoUrl, parseNumber, parsePercent, formatDateStr } from '../utils/dataUtils';
 
 /* ─── Helpers ─── */
 const formatNumberIndo = (num) => {
@@ -791,7 +791,7 @@ const AqlEmailExportView = ({
 
             {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(aqlData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(aqlData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey, soilingExclude: trendSoilingExclude('3rd Party') })} />
             </div>
 
             {/* Building Status Chart */}
@@ -1361,7 +1361,7 @@ const AqlEmailExportView = ({
               </div>
 
               {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey, soilingExclude: trendSoilingExclude('3rd Party') })} />
 
               {/* Bottom Area: Building Status Chart */}
               <div

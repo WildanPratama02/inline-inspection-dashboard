@@ -1,4 +1,4 @@
-import { buildKeyProbe, computeTrendDefectFromRows, usesTotalDefectTrend, findKey, parseNumber, parsePercent } from './dataUtils.js';
+import { buildKeyProbe, computeTrendDefectFromRows, trendSoilingExclude, usesTotalDefectTrend, findKey, parseNumber, parsePercent } from './dataUtils.js';
 import { downloadSpreadsheetMlAsXlsx } from './xlsxWriter.js';
 
 const escapeXml = (unsafe) => {
@@ -896,13 +896,14 @@ export const exportToExcelDetail = (data = [], rawData = [], resolveInspectorTyp
   // --- Trend Defect: Soiling / Bonding (same rule as the dashboard chart) ---
   // Per group: qty defect / inspection qty of the rows that contain that group's defect.
   // CFA divides by sample lot, other tabs by qty inspection.
-  // PSI LV.2 and 3rd Party use those rows' Total Defect instead of the group's defect qty.
+  // PSI LV.2 and 3rd Party: each defect slot of the group adds its row's Total Defect / Qty Inspection.
   {
     const sampleLotKey = activeTab === 'CFA' ? findKey(firstItem, 'sample_lot', 'sample lot') : null;
     const trendTotalDefectKey = usesTotalDefectTrend(activeTab) ? findKey(firstItem, 'total_defect', 'total defect') : undefined;
     const trendRows = computeTrendDefectFromRows(rows, {
       inspectionKey: sampleLotKey || qtyInsKey,
       totalDefectKey: trendTotalDefectKey,
+      soilingExclude: trendSoilingExclude(activeTab),
       includeDefect: isDefectFiltered ? (name) => defectFilters.includes(name) : undefined
     });
 
