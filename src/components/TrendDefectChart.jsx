@@ -41,8 +41,9 @@ const TrendTooltip = ({ active, payload }) => {
 // TREND DEFECT bar chart: Soiling (contamination + over cementing) and Bonding (bonding gap),
 // each as defect qty / qty inspection (%). `defects` = every defect name with its total qty.
 // denominatorLabel: what qtyInspection is (CFA divides by Sample Lot)
+// numeratorLabel: what qty is (PSI LV.2 / 3rd Party use Total Defect)
 // rows: computeTrendDefectFromRows() output — [{ key, label, qty, inspection, rate }]
-const TrendDefectChart = ({ rows = [], denominatorLabel = 'Qty Inspection', height = 210, className = '' }) => {
+const TrendDefectChart = ({ rows = [], numeratorLabel = 'Qty Defect', denominatorLabel = 'Qty Inspection', height = 210, className = '' }) => {
   const maxRate = Math.max(...rows.map((r) => r.rate), 0);
   const ticks = trendPercentTicks(maxRate);
 
@@ -51,7 +52,7 @@ const TrendDefectChart = ({ rows = [], denominatorLabel = 'Qty Inspection', heig
       <h2 className="text-sm font-bold text-center uppercase tracking-widest text-black bg-gradient-to-r from-yellow-400 to-orange-500 rounded-sm py-1">
         Trend Defect
       </h2>
-      <div className="text-[10px] text-center text-amber-100/70 mt-1">% Defect = Qty Defect / {denominatorLabel}</div>
+      <div className="text-[10px] text-center text-amber-100/70 mt-1">% Defect = {numeratorLabel} / {denominatorLabel}</div>
       <div style={{ height: `${height}px`, minHeight: `${height}px` }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 22, right: 12, left: 0, bottom: 18 }}>

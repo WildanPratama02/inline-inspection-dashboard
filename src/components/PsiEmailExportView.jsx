@@ -404,7 +404,10 @@ const PsiEmailExportView = ({
   const firstItem = rawData[0] || {};
   const factoryKey = findKey(firstItem, 'factory', 'building') || 'factory';
   // Trend Defect denominator: qty inspection of the rows that contain the group's defect
-  const trendInspectionKey = findKey(buildKeyProbe(rawData), 'qty_inspection', 'qty inspection');
+  const trendProbe = buildKeyProbe(rawData);
+  const trendInspectionKey = findKey(trendProbe, 'qty_inspection', 'qty inspection');
+  // Trend Defect numerator = Total Defect of the rows that contain the group's defect
+  const trendTotalDefectKey = findKey(trendProbe, 'total_defect', 'total defect');
   const modelKey = findKey(firstItem, 'model') || 'model';
   const poKey = findKey(firstItem, 'po') || 'po';
   const crdKey = findKey(firstItem, 'crd') || 'crd';
@@ -755,7 +758,7 @@ const PsiEmailExportView = ({
 
             {/* TREND DEFECT chart — under TOP 5 DEFECT */}
             <div style={{ marginTop: '8px' }}>
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(psiData, { inspectionKey: trendInspectionKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(psiData, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
             </div>
 
             {/* RFT BY DATE Chart */}
@@ -1285,7 +1288,7 @@ const PsiEmailExportView = ({
               </div>
 
               {/* TREND DEFECT chart — full width under TOP 5 DEFECT + photos */}
-              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey })} />
+              <EmailTrendDefectChart rows={computeTrendDefectFromRows(fItem.data, { inspectionKey: trendInspectionKey, totalDefectKey: trendTotalDefectKey })} />
 
               {/* Bottom Area: RFT BY DATE Chart */}
               <div
